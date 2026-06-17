@@ -1,0 +1,22 @@
+# Segredos — NUNCA versionar
+.env
+*.env
+**/.env
+*.key
+**/secrets/
+
+# Código-fonte de referência do Paperclip (roda em produção via npx; não versionar aqui)
+paperclip-master/
+
+# Artefatos gerados
+alcateia.zip
+*.zip
+
+# Dependências e build
+node_modules/
+dist/
+build/
+
+# Sistema
+.DS_Store
+Thumbs.db

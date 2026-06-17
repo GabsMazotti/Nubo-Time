@@ -1,0 +1,99 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://alcateia/contratos/ficha-de-campanha.schema.json",
+  "title": "FichaDeCampanha",
+  "description": "Contrato Gerente -> Trafegador (handoff 6.1). Emitido pelo Gerente, consumido pelo Trafegador Direto ou PWA.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id", "funil", "marca", "geo", "objetivoNegocio",
+    "eventoOtimizacao", "modoLance", "cpaAlvoUsd", "budgetDiaUsd",
+    "publico", "kpisMeta", "criativos", "tracking", "prazoAprendizadoHoras"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "description": "Nome da campanha no padrao NOMENCLATURA: GEO_FUNIL_OFERTA_LANCE_EVENTO_DDMM",
+      "pattern": "^[A-Z]{2}_(DIRETO|PWA)_[A-Z0-9-]+_(LIVRE|COSTCAP|BIDCAP)_(REG|DEP|INST)_[0-9]{4}$",
+      "examples": ["CL_DIRETO_BONUS100_LIVRE_REG_1506"]
+    },
+    "funil": { "type": "string", "enum": ["DIRETO", "PWA"] },
+    "marca": { "type": "string", "description": "Codigo da oferta/marca (Banco Mestre)" },
+    "geo": { "type": "string", "description": "Codigo de pais ISO-2", "examples": ["CL", "PE"] },
+    "objetivoNegocio": { "type": "string", "enum": ["volume", "qualidade", "equilibrio"] },
+    "eventoOtimizacao": {
+      "type": "string",
+      "enum": ["Cadastro", "Deposito", "Instalacao"],
+      "description": "Cadastro (Lead) e o default no estado atual; Deposito (Purchase+valor) quando houver tracker e volume; Instalacao so no PWA"
+    },
+    "modoLance": { "type": "string", "enum": ["Livre", "CostCap", "BidCap"] },
+    "cpaAlvoUsd": {
+      "type": "number",
+      "minimum": 5,
+      "maximum": 30,
+      "description": "Alvo de trabalho ~10; teto duro 30"
+    },
+    "budgetDiaUsd": { "type": "number", "exclusiveMinimum": 0 },
+    "publico": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["genero", "idadeMin", "idadeMax", "os", "colocacao"],
+      "properties": {
+        "genero": { "type": "string", "enum": ["H", "M", "HM"] },
+        "idadeMin": { "type": "integer", "minimum": 18 },
+        "idadeMax": { "type": "integer", "maximum": 65 },
+        "os": { "type": "string", "enum": ["AND", "IOS", "ALL"] },
+        "colocacao": { "type": "string", "enum": ["AUTO", "MAN-REELS", "MAN-FEED"] }
+      }
+    },
+    "kpisMeta": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "cprUsd": { "type": "number" },
+        "cadastroParaFtdPct": { "type": "number" },
+        "cpaUsd": { "type": "number" },
+        "segundoDepositoPct": { "type": "number" },
+        "paybackDias": { "type": "integer" },
+        "roasD0": { "type": "number" }
+      }
+    },
+    "criativos": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["quantidade", "arquivos"],
+      "properties": {
+        "quantidade": { "type": "integer", "minimum": 1 },
+        "arquivos": {
+          "type": "array",
+          "minItems": 1,
+          "description": "Nomes ja gerados pelo Eugene/Banco Mestre, contendo OFERTA e FORMATO",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["nomeArquivo", "oferta", "formato"],
+            "properties": {
+              "nomeArquivo": { "type": "string" },
+              "oferta": { "type": "string", "description": "Codigo de OFERTA do Banco Mestre" },
+              "formato": { "type": "string", "description": "Codigo de FORMATO do Banco Mestre" }
+            }
+          }
+        }
+      }
+    },
+    "tracking": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["eventos", "capi", "postbackS2S"],
+      "properties": {
+        "eventos": {
+          "type": "array",
+          "items": { "type": "string", "enum": ["ViewContent", "Lead", "CompleteRegistration", "Purchase", "Install"] }
+        },
+        "capi": { "type": "boolean" },
+        "postbackS2S": { "type": "boolean", "description": "Falso enquanto nao houver tracker; FTD fica no backend" }
+      }
+    },
+    "prazoAprendizadoHoras": { "type": "integer", "minimum": 48, "default": 72 }
+  }
+}

@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://alcateia/contratos/relatorio-de-status.schema.json",
+  "title": "RelatorioDeStatus",
+  "description": "Contrato Trafegador -> Gerente/Analista (handoff 6.2). Estado da campanha apos a subida.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["id", "status", "estrutura", "gastoUsd", "pendencias"],
+  "properties": {
+    "id": { "type": "string", "description": "Mesmo ID da ficha (nome da campanha)" },
+    "status": { "type": "string", "enum": ["rascunho", "no-ar", "aprendendo", "reprovado", "pausado"] },
+    "estrutura": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["campanhas", "conjuntos", "anuncios"],
+      "properties": {
+        "campanhas": { "type": "integer", "minimum": 0 },
+        "conjuntos": { "type": "integer", "minimum": 0 },
+        "anuncios": { "type": "integer", "minimum": 0 },
+        "nomes": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Lista de nomes de anuncio no padrao ##_FUNIL_OFERTA_FORMATO"
+        }
+      }
+    },
+    "gastoUsd": { "type": "number", "minimum": 0 },
+    "pendencias": {
+      "type": "array",
+      "description": "Bloqueios para escalar (ex.: postback nao confirmado, anuncio em revisao)",
+      "items": { "type": "string" }
+    },
+    "trackingValidado": {
+      "type": "boolean",
+      "description": "Teste de funil ponta a ponta concluido (LP, cadastro, deposito teste, postback). Pre-requisito para escala por FTD."
+    },
+    "link": { "type": "string", "description": "Link do Gerenciador ou observacoes" }
+  }
+}
