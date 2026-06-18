@@ -67,12 +67,12 @@
 const API = "https://dttqxqnxlmkrclvhtqqx.supabase.co/functions/v1/inbox";
 const TEMP = {quente:"#ef4444",morno:"#f59e0b",frio:"#3b82f6"};
 const SC = {call_confirmada:"#22c55e",call_agendada:"#16a34a",qualificado:"#22c55e",em_atendimento:"#3b82f6",contato_realizado:"#64748b",novo_lead:"#64748b",precisa_humano:"#ef4444",risco_no_show:"#f97316",nao_confirmado:"#f97316",morno:"#f59e0b",nutricao:"#f59e0b",remarcar_reuniao:"#f59e0b",reuniao_remarcada:"#16a34a",reuniao_cancelada:"#6b7280",nao_qualificado:"#6b7280",sem_resposta:"#6b7280",perdido:"#6b7280",opt_out:"#6b7280",aguardando_agendamento:"#16a34a"};
-const SL = {novo_lead:"Novo",contato_realizado:"Contato feito",em_atendimento:"Em atendimento",qualificado:"Qualificado",aguardando_agendamento:"Aguardando agend.",call_agendada:"Call agendada",call_confirmada:"Confirmada",nao_confirmado:"Não confirmou",risco_no_show:"Risco no-show",remarcar_reuniao:"Remarcar",reuniao_remarcada:"Remarcada",reuniao_cancelada:"Cancelada",morno:"Morno",nutricao:"Nutrição",nao_qualificado:"Não qualif.",sem_resposta:"Sem resposta",precisa_humano:"Gabriel!",perdido:"Perdido",opt_out:"Opt-out"};
+const SL = {novo_lead:"Novo",contato_realizado:"Contato feito",em_atendimento:"Em atendimento",qualificado:"Qualificado",aguardando_agendamento:"Aguardando agend.",call_agendada:"Call agendada",call_confirmada:"Confirmada",nao_confirmado:"Não confirmou",risco_no_show:"Risco no-show",remarcar_reuniao:"Remarcar",reuniao_remarcada:"Remarcada",reuniao_cancelada:"Cancelada",morno:"Morno",nutricao:"Nutrição",nao_qualificado:"Não qualif.",sem_resposta:"Sem resposta",precisa_humano:"Atend. humano",perdido:"Perdido",opt_out:"Opt-out"};
 
 // Categorias (folders) — cada lead cai em UMA, por prioridade
 const CATS = [
   {id:"todos", label:"Todos"},
-  {id:"gabriel", label:"⚠️ Precisa Gabriel"},
+  {id:"gabriel", label:"⚠️ Precisa de atendimento humano"},
   {id:"reuniao", label:"📅 Reunião"},
   {id:"qualificado", label:"🔥 Qualificados"},
   {id:"atendimento", label:"💬 Em atendimento"},
@@ -122,7 +122,7 @@ function renderList(){
       +'<div class="av" style="background:'+(TEMP[l.temperature]||"#374151")+'">'+esc(initials(l.name))+'</div>'
       +'<div class="cmeta"><div class="crow"><span class="cname">'+esc(l.name)+'</span><span class="ctime">'+hm(l.activity)+'</span></div>'
       +'<div class="crow"><span class="cprev">'+esc(prev).slice(0,60)+'</span></div>'
-      +'<div>'+badge(SL[l.status]||l.status,SC[l.status]||"#6b7280")+(l.needs_human?' '+badge("⚠️ Gabriel","#ef4444"):"")+(l.bot_paused?' '+badge("⏸ bot off","#7c3aed"):"")+'</div></div></div>';
+      +'<div>'+badge(SL[l.status]||l.status,SC[l.status]||"#6b7280")+(l.needs_human?' '+badge("⚠️ Humano","#ef4444"):"")+(l.bot_paused?' '+badge("⏸ bot off","#7c3aed"):"")+'</div></div></div>';
   }).join("") || '<div class="empty">Nenhuma conversa nessa categoria</div>';
 }
 
