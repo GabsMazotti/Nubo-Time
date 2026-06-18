@@ -11,10 +11,13 @@
   .login input{padding:10px 14px;border-radius:8px;border:1px solid #2a3942;background:#111b21;color:#e9edef;width:280px}
   .login button{padding:10px 18px;border-radius:8px;border:0;background:#00a884;color:#fff;font-weight:700;cursor:pointer}
   .app{display:none;height:100vh}
-  .list{width:360px;min-width:300px;border-right:1px solid #222d34;display:flex;flex-direction:column;background:#111b21}
-  .lhead{padding:14px 16px;font-weight:700;border-bottom:1px solid #222d34;display:flex;justify-content:space-between;align-items:center}
-  .lhead small{color:#8696a0;font-weight:400}
-  .lhead a{color:#8696a0;font-size:12px;cursor:pointer}
+  .list{width:380px;min-width:320px;border-right:1px solid #222d34;display:flex;flex-direction:column;background:#111b21}
+  .lhead{padding:12px 16px;font-weight:700;border-bottom:1px solid #222d34;display:flex;justify-content:space-between;align-items:center}
+  .lhead small{color:#8696a0;font-weight:400} .lhead a{color:#8696a0;font-size:12px;cursor:pointer}
+  .chips{display:flex;flex-wrap:wrap;gap:6px;padding:8px 12px;border-bottom:1px solid #222d34}
+  .chip{padding:4px 10px;border-radius:999px;font-size:12px;cursor:pointer;background:#202c33;color:#cbd5e1;border:1px solid #2a3942;white-space:nowrap}
+  .chip.on{background:#00a884;color:#fff;border-color:#00a884}
+  .chip b{opacity:.8;font-weight:600}
   .convs{overflow-y:auto;flex:1}
   .conv{display:flex;gap:12px;padding:10px 14px;border-bottom:1px solid #1a242b;cursor:pointer}
   .conv:hover{background:#1a242b} .conv.active{background:#2a3942}
@@ -23,15 +26,22 @@
   .crow{display:flex;justify-content:space-between;gap:8px;align-items:center}
   .cname{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .ctime{color:#8696a0;font-size:11px;flex-shrink:0}
-  .cprev{color:#8696a0;font-size:12.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:block;max-width:230px}
+  .cprev{color:#8696a0;font-size:12.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:block;max-width:250px}
   .badge{display:inline-block;padding:1px 7px;border-radius:999px;font-size:10px;font-weight:700;color:#fff;margin-top:3px}
-  .thread{flex:1;display:flex;flex-direction:column;background:#0b141a}
+  .thread{flex:1;display:flex;flex-direction:column;background:#0b141a;min-width:0}
   .thead{display:flex;gap:12px;align-items:center;padding:10px 16px;border-bottom:1px solid #222d34;background:#202c33}
+  .thead .grow{flex:1;min-width:0}
   .sub2{color:#8696a0;font-size:12px}
+  .botbtn{padding:6px 12px;border-radius:8px;border:0;font-weight:700;cursor:pointer;font-size:12px}
+  .bot-on{background:#1f3a2e;color:#22c55e} .bot-off{background:#3a1f1f;color:#f87171}
   .msgs{flex:1;overflow-y:auto;padding:20px;display:flex;flex-direction:column;gap:6px}
   .b{max-width:65%;padding:7px 10px 18px;border-radius:8px;position:relative;white-space:pre-wrap;font-size:13.5px}
   .b .t{position:absolute;right:8px;bottom:4px;font-size:10px;color:#8696a0}
   .out{align-self:flex-end;background:#005c4b} .in{align-self:flex-start;background:#202c33}
+  .out.manual{background:#1d4ed8}
+  .reply{display:flex;gap:8px;padding:12px;border-top:1px solid #222d34;background:#202c33}
+  .reply textarea{flex:1;resize:none;height:42px;padding:10px 12px;border-radius:10px;border:1px solid #2a3942;background:#2a3942;color:#e9edef;font:inherit}
+  .reply button{padding:0 18px;border-radius:10px;border:0;background:#00a884;color:#fff;font-weight:700;cursor:pointer}
   .empty{margin:auto;color:#8696a0;text-align:center;padding:30px}
 </style>
 </head>
@@ -39,7 +49,7 @@
   <div class="login" id="login">
     <h2>🐺 Inbox Alcateia</h2>
     <div style="color:#8696a0">Digite a senha de acesso</div>
-    <input id="key" type="password" placeholder="senha do painel" />
+    <input id="key" type="password" placeholder="senha do painel" onkeydown="if(event.key==='Enter')saveKey()" />
     <button onclick="saveKey()">Entrar</button>
     <div id="err" style="color:#ef4444"></div>
   </div>
@@ -47,6 +57,7 @@
   <div class="app" id="app">
     <div class="list">
       <div class="lhead"><span>🐺 Inbox Alcateia</span><span><small id="count"></small> · <a onclick="logout()">sair</a></span></div>
+      <div class="chips" id="chips"></div>
       <div class="convs" id="convs"></div>
     </div>
     <div class="thread" id="thread"><div class="empty">← Selecione uma conversa</div></div>
@@ -57,8 +68,30 @@ const API = "https://dttqxqnxlmkrclvhtqqx.supabase.co/functions/v1/inbox";
 const TEMP = {quente:"#ef4444",morno:"#f59e0b",frio:"#3b82f6"};
 const SC = {call_confirmada:"#22c55e",call_agendada:"#16a34a",qualificado:"#22c55e",em_atendimento:"#3b82f6",contato_realizado:"#64748b",novo_lead:"#64748b",precisa_humano:"#ef4444",risco_no_show:"#f97316",nao_confirmado:"#f97316",morno:"#f59e0b",nutricao:"#f59e0b",remarcar_reuniao:"#f59e0b",reuniao_remarcada:"#16a34a",reuniao_cancelada:"#6b7280",nao_qualificado:"#6b7280",sem_resposta:"#6b7280",perdido:"#6b7280",opt_out:"#6b7280",aguardando_agendamento:"#16a34a"};
 const SL = {novo_lead:"Novo",contato_realizado:"Contato feito",em_atendimento:"Em atendimento",qualificado:"Qualificado",aguardando_agendamento:"Aguardando agend.",call_agendada:"Call agendada",call_confirmada:"Confirmada",nao_confirmado:"Não confirmou",risco_no_show:"Risco no-show",remarcar_reuniao:"Remarcar",reuniao_remarcada:"Remarcada",reuniao_cancelada:"Cancelada",morno:"Morno",nutricao:"Nutrição",nao_qualificado:"Não qualif.",sem_resposta:"Sem resposta",precisa_humano:"Gabriel!",perdido:"Perdido",opt_out:"Opt-out"};
+
+// Categorias (folders) — cada lead cai em UMA, por prioridade
+const CATS = [
+  {id:"todos", label:"Todos"},
+  {id:"gabriel", label:"⚠️ Precisa Gabriel"},
+  {id:"reuniao", label:"📅 Reunião"},
+  {id:"qualificado", label:"🔥 Qualificados"},
+  {id:"atendimento", label:"💬 Em atendimento"},
+  {id:"morno", label:"🌡️ Morno/Nutrição"},
+  {id:"desqualificado", label:"❌ Desqualificados"},
+];
+function catOf(l){
+  const s=l.status;
+  if(l.needs_human || s==="precisa_humano" || s==="risco_no_show" || s==="nao_confirmado") return "gabriel";
+  if(["aguardando_agendamento","call_agendada","call_confirmada","reuniao_remarcada","remarcar_reuniao"].includes(s)) return "reuniao";
+  if(l.qualified || s==="qualificado") return "qualificado";
+  if(["nao_qualificado","perdido","opt_out","reuniao_cancelada"].includes(s)) return "desqualificado";
+  if(["morno","nutricao"].includes(s)) return "morno";
+  return "atendimento";
+}
+
 let KEY = localStorage.getItem("alc_key") || "";
-let current = null;
+let current = null, allLeads = [], filter = "todos";
+const drafts = {};
 
 function esc(s){return String(s==null?"":s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));}
 function hm(iso){if(!iso)return"";try{return new Date(iso).toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit",timeZone:"America/Sao_Paulo"});}catch(e){return"";}}
@@ -69,54 +102,73 @@ function badge(t,c){return '<span class="badge" style="background:'+c+'">'+esc(t
 function saveKey(){const v=document.getElementById("key").value.trim();if(!v)return;KEY=v;localStorage.setItem("alc_key",v);start();}
 function logout(){localStorage.removeItem("alc_key");location.reload();}
 
-async function api(params){
-  const r = await fetch(API+"?key="+encodeURIComponent(KEY)+params);
-  if(r.status===401){throw new Error("unauthorized");}
-  return r.json();
-}
+async function api(params){const r=await fetch(API+"?key="+encodeURIComponent(KEY)+params);if(r.status===401)throw new Error("unauthorized");return r.json();}
+async function apiPost(payload){const r=await fetch(API+"?key="+encodeURIComponent(KEY),{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)});return r.json();}
 
-async function loadList(){
-  const d = await api("");
-  document.getElementById("count").textContent = (d.total||0)+" conversas";
-  const html = (d.leads||[]).map(l=>{
-    const prev = l.last ? (l.last.direction==="outbound"?"🤖 ":"")+(l.last.body||"") : "—";
+function renderChips(){
+  const counts={}; CATS.forEach(c=>counts[c.id]=0);
+  allLeads.forEach(l=>{counts.todos++; counts[catOf(l)]++;});
+  document.getElementById("chips").innerHTML = CATS.map(c=>
+    '<span class="chip '+(filter===c.id?"on":"")+'" onclick="setFilter(\''+c.id+'\')">'+c.label+' <b>'+(counts[c.id]||0)+'</b></span>').join("");
+}
+function setFilter(f){filter=f;renderChips();renderList();}
+
+function renderList(){
+  const items = allLeads.filter(l=>filter==="todos"||catOf(l)===filter);
+  document.getElementById("count").textContent = items.length+" conversas";
+  document.getElementById("convs").innerHTML = items.map(l=>{
+    const prev=l.last?(l.last.direction==="outbound"?"🤖 ":"")+(l.last.body||""):"—";
     return '<div class="conv '+(l.id===current?"active":"")+'" onclick="openLead(\''+l.id+'\')">'
       +'<div class="av" style="background:'+(TEMP[l.temperature]||"#374151")+'">'+esc(initials(l.name))+'</div>'
       +'<div class="cmeta"><div class="crow"><span class="cname">'+esc(l.name)+'</span><span class="ctime">'+hm(l.activity)+'</span></div>'
       +'<div class="crow"><span class="cprev">'+esc(prev).slice(0,60)+'</span></div>'
-      +'<div>'+badge(SL[l.status]||l.status,SC[l.status]||"#6b7280")+(l.needs_human?' '+badge("⚠️ Gabriel","#ef4444"):"")+'</div></div></div>';
-  }).join("") || '<div class="empty">Sem conversas ainda</div>';
-  document.getElementById("convs").innerHTML = html;
+      +'<div>'+badge(SL[l.status]||l.status,SC[l.status]||"#6b7280")+(l.needs_human?' '+badge("⚠️ Gabriel","#ef4444"):"")+(l.bot_paused?' '+badge("⏸ bot off","#7c3aed"):"")+'</div></div></div>';
+  }).join("") || '<div class="empty">Nenhuma conversa nessa categoria</div>';
 }
 
+async function loadList(){const d=await api("");allLeads=d.leads||[];renderChips();renderList();}
+
 async function openLead(id){
-  current = id;
-  const d = await api("&lead="+id);
-  if(d.error){return;}
-  const L=d.lead, ap=d.appointment;
-  const bubbles = (d.messages||[]).map(m=>'<div class="b '+(m.direction==="outbound"?"out":"in")+'">'+esc(m.body)+'<span class="t">'+hm(m.created_at)+'</span></div>').join("") || '<div class="empty">Sem mensagens.</div>';
-  const apptLine = ap ? " · 📅 "+dm(ap.scheduled_at)+" ("+esc(ap.confirmation_status)+")" : "";
-  document.getElementById("thread").innerHTML =
+  current=id;
+  const d=await api("&lead="+id);
+  if(d.error)return;
+  const L=d.lead, ap=d.appointment, paused=!!L.bot_paused;
+  const bubbles=(d.messages||[]).map(m=>{
+    const manual=m.meta&&m.meta.kind==="manual";
+    return '<div class="b '+(m.direction==="outbound"?"out":"in")+(manual?" manual":"")+'">'+esc(m.body)+'<span class="t">'+(manual?"👤 ":"")+hm(m.created_at)+'</span></div>';
+  }).join("")||'<div class="empty">Sem mensagens.</div>';
+  const apptLine=ap?" · 📅 "+dm(ap.scheduled_at)+" ("+esc(ap.confirmation_status)+")":"";
+  document.getElementById("thread").innerHTML=
     '<div class="thead"><div class="av" style="background:'+(TEMP[L.temperature]||"#374151")+'">'+esc(initials(L.name))+'</div>'
-    +'<div><div class="cname">'+esc(L.name)+' '+badge(SL[L.status]||L.status,SC[L.status]||"#6b7280")+'</div>'
-    +'<div class="sub2">'+(esc(L.phone)||"—")+' · '+(esc(L.budget_raw)||"sem orçamento")+apptLine+'</div></div></div>'
-    +'<div class="msgs" id="msgs">'+bubbles+'</div>';
+    +'<div class="grow"><div class="cname">'+esc(L.name)+' '+badge(SL[L.status]||L.status,SC[L.status]||"#6b7280")+'</div>'
+    +'<div class="sub2">'+(esc(L.phone)||"—")+' · '+(esc(L.budget_raw)||"sem orçamento")+apptLine+'</div></div>'
+    +'<button class="botbtn '+(paused?"bot-off":"bot-on")+'" onclick="toggleBot(\''+id+'\','+(!paused)+')">'+(paused?"⏸ Bot pausado — reativar":"🤖 Bot ativo — pausar")+'</button></div>'
+    +'<div class="msgs" id="msgs">'+bubbles+'</div>'
+    +'<div class="reply"><textarea id="draft" placeholder="Escreva uma mensagem (envia pelo WhatsApp e pausa o bot)..." oninput="drafts[current]=this.value"></textarea><button onclick="sendMsg()">Enviar</button></div>';
+  const ta=document.getElementById("draft"); if(ta) ta.value=drafts[id]||"";
   const m=document.getElementById("msgs"); if(m) m.scrollTop=m.scrollHeight;
   loadList();
 }
+
+async function sendMsg(){
+  const ta=document.getElementById("draft"); if(!ta) return;
+  const text=ta.value.trim(); if(!text) return;
+  ta.disabled=true;
+  const r=await apiPost({action:"send",lead_id:current,text});
+  ta.disabled=false;
+  if(r.ok){drafts[current]="";openLead(current);}
+  else alert("Falha ao enviar: "+(r.reason||r.error||"erro"));
+}
+async function toggleBot(id,paused){await apiPost({action:"toggle_bot",lead_id:id,paused});openLead(id);}
 
 async function start(){
   try{
     await loadList();
     document.getElementById("login").style.display="none";
     document.getElementById("app").style.display="flex";
-    setInterval(()=>{ loadList(); if(current) { const m=document.getElementById("msgs"); const atBottom = m && (m.scrollHeight-m.scrollTop-m.clientHeight<60); openLead(current).then(()=>{}); } }, 20000);
-  }catch(e){
-    document.getElementById("err").textContent = "Senha inválida.";
-    localStorage.removeItem("alc_key");
-  }
+    setInterval(()=>{loadList(); if(current) openLead(current);}, 20000);
+  }catch(e){document.getElementById("err").textContent="Senha inválida.";localStorage.removeItem("alc_key");}
 }
-
 if(KEY){ start(); }
 </script>
 </body>
