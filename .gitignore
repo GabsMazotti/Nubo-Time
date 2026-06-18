@@ -17,6 +17,10 @@ node_modules/
 dist/
 build/
 
+# Supabase CLI (metadados locais — não versionar)
+**/supabase/.temp/
+**/supabase/.branches/
+
 # Sistema
 .DS_Store
 Thumbs.db
