@@ -14,7 +14,7 @@ A operação roda como um sistema de **7 agentes** no **Paperclip** (orquestrado
 - **Chave de API:** `ANTHROPIC_API_KEY` fica em `/etc/paperclip.env` no servidor. Os agentes (claude_local = Claude Code) herdam essa chave do ambiente — billing por consumo, sem assinatura por pessoa.
 - **DNS:** Hostinger (domínio nubomind.com), registro A `app` → 143.198.117.42.
 
-## Os 7 agentes (organograma)
+## Os 8 agentes (organograma)
 - **Gerente Geral** (topo, orquestrador, único que fala com o dono; tem skills de gestão do Paperclip).
   - **Trafegador Direto** — campanhas funil direto (casino).
   - **Trafegador PWA** — campanhas funil PWA.
@@ -22,7 +22,9 @@ A operação roda como um sistema de **7 agentes** no **Paperclip** (orquestrado
   - **Analista de Anúncios Ativos na Meta** — pesquisa criativos na Biblioteca de Anúncios.
   - **Copywriter** — copies + descrição visual (entrega ao Editor).
   - **Editor** — criativo/especificação visual a partir da copy.
+  - **Atendente Alcateia** — SDR/primeiro atendimento comercial da **Alcateia Media** (agência). Recebe leads do Respondi, atende no WhatsApp (Z-API), qualifica (regra ≥ R$10k/mês) e agenda/confirma call com o closer **Gabriel** (Calendly). Função comercial, **separada** da operação de tráfego.
 - **Fluxo de criativos:** Analista de Anúncios → Copywriter → Editor.
+- **Funil comercial (independente):** Respondi → Atendente Alcateia → call com Gabriel.
 
 ## Regras/leis dos agentes
 - **Lances:** Lances livres → Cost cap → Bid cap (nessa ordem).
@@ -31,7 +33,7 @@ A operação roda como um sistema de **7 agentes** no **Paperclip** (orquestrado
 - **Compliance iGaming:** +18; sem promessa de lucro garantido; não copiar criativos/marcas/logos/rostos de terceiros; sem scraping de mídia da Biblioteca do Meta (só dados públicos/links).
 
 ## Estrutura de arquivos (nesta pasta)
-- `alcateia-agentes/agentes/` — instruções de cada agente (01..07).
+- `alcateia-agentes/agentes/` — instruções de cada agente (01..08; 08 = Atendente Alcateia, SDR comercial).
 - `alcateia-agentes/leis/` — 00-SISTEMA, NOMENCLATURA, DECISOES, ALFA-playbook.
 - `alcateia-agentes/contratos/` — schemas JSON (ficha de campanha, relatório de status, relatório de análise).
 - `alcateia-agentes/guias/` — guias de deploy e integração.
