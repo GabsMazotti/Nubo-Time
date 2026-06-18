@@ -10,7 +10,15 @@
   .login{height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px}
   .login input{padding:10px 14px;border-radius:8px;border:1px solid #2a3942;background:#111b21;color:#e9edef;width:280px}
   .login button{padding:10px 18px;border-radius:8px;border:0;background:#00a884;color:#fff;font-weight:700;cursor:pointer}
-  .app{display:none;height:100vh}
+  .topbar{display:none;align-items:center;gap:18px;height:46px;padding:0 16px;background:#202c33;border-bottom:1px solid #222d34}
+  .topbar .brand{font-weight:800}
+  .topbar nav{display:flex;gap:6px}
+  .topbar .tab{padding:6px 14px;border-radius:8px;color:#cbd5e1;text-decoration:none;font-weight:700;font-size:13px}
+  .topbar .tab.on{background:#00a884;color:#fff}
+  .topbar .tab:hover{background:#2a3942}
+  .topbar .right{margin-left:auto;color:#8696a0;font-size:12px}
+  .topbar .right a{color:#8696a0;cursor:pointer}
+  .app{display:none;height:calc(100vh - 46px)}
   .list{width:380px;min-width:320px;border-right:1px solid #222d34;display:flex;flex-direction:column;background:#111b21}
   .lhead{padding:12px 16px;font-weight:700;border-bottom:1px solid #222d34;display:flex;justify-content:space-between;align-items:center}
   .lhead small{color:#8696a0;font-weight:400} .lhead a{color:#8696a0;font-size:12px;cursor:pointer}
@@ -54,9 +62,18 @@
     <div id="err" style="color:#ef4444"></div>
   </div>
 
+  <div class="topbar" id="topbar">
+    <span class="brand">🐺 Alcateia</span>
+    <nav>
+      <a class="tab on" href="./">💬 Inbox</a>
+      <a class="tab" href="crm.html">📊 CRM</a>
+    </nav>
+    <span class="right"><small id="count"></small> · <a onclick="logout()">sair</a></span>
+  </div>
+
   <div class="app" id="app">
     <div class="list">
-      <div class="lhead"><span>🐺 Inbox Alcateia</span><span><small id="count"></small> · <a onclick="logout()">sair</a></span></div>
+      <div class="lhead"><span>🐺 Inbox Alcateia</span><span><small id="count2"></small></span></div>
       <div class="chips" id="chips"></div>
       <div class="convs" id="convs"></div>
     </div>
@@ -115,7 +132,8 @@ function setFilter(f){filter=f;renderChips();renderList();}
 
 function renderList(){
   const items = allLeads.filter(l=>filter==="todos"||catOf(l)===filter);
-  document.getElementById("count").textContent = items.length+" conversas";
+  document.getElementById("count").textContent = allLeads.length+" leads";
+  document.getElementById("count2").textContent = items.length+" conversas";
   document.getElementById("convs").innerHTML = items.map(l=>{
     const prev=l.last?(l.last.direction==="outbound"?"🤖 ":"")+(l.last.body||""):"—";
     return '<div class="conv '+(l.id===current?"active":"")+'" onclick="openLead(\''+l.id+'\')">'
@@ -165,7 +183,10 @@ async function start(){
   try{
     await loadList();
     document.getElementById("login").style.display="none";
+    document.getElementById("topbar").style.display="flex";
     document.getElementById("app").style.display="flex";
+    const deep=new URLSearchParams(location.search).get("lead");
+    if(deep) openLead(deep);
     setInterval(()=>{loadList(); if(current) openLead(current);}, 20000);
   }catch(e){document.getElementById("err").textContent="Senha inválida.";localStorage.removeItem("alc_key");}
 }
