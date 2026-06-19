@@ -79,6 +79,11 @@ const SECTIONS = [
     { key:"msg_confirmacao", label:"✅ Resposta quando o lead confirma a call", hint:"Variável: {quando}", rows:4 },
     { key:"msg_remarcacao", label:"🔁 Resposta quando o lead quer remarcar", hint:"Variáveis: {nome}, {url}", rows:4 },
   ]},
+  { title: "Lembretes de confirmação da call", note:"Enviados automaticamente 3h, 1h e 10min antes da reunião, já com o link da call (gerado pelo Calendly). Variáveis: {nome}, {horario}, {link}.", fields: [
+    { key:"msg_lembrete_3h", label:"⏰ Lembrete 3 horas antes", hint:"Variáveis: {nome}, {horario}, {link}", rows:4 },
+    { key:"msg_lembrete_1h", label:"⏰ Lembrete 1 hora antes", hint:"Variáveis: {nome}, {horario}, {link}", rows:4 },
+    { key:"msg_lembrete_10min", label:"⏰ Lembrete 10 minutos antes", hint:"Variáveis: {nome}, {horario}, {link}", rows:4 },
+  ]},
   { title: "Perguntas & respostas (FAQ)", note:"Respostas-base para os assuntos mais comuns. A IA usa como base e adapta à conversa — não cola literal.", fields: [
     { key:"faq_o_que_e", label:"❓ O que é a Alcateia? / O que vocês fazem?", hint:"", rows:3 },
     { key:"faq_como_funciona", label:"❓ Como funciona o trabalho de vocês?", hint:"", rows:3 },
