@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>CRM Â· Atendente Alcateia</title>
+<title>CRM · Atendente Alcateia</title>
 <style>
   :root{color-scheme:dark} *{box-sizing:border-box}
   body{margin:0;height:100vh;background:#0b141a;color:#e9edef;font:14px/1.45 system-ui,Segoe UI,Roboto,sans-serif;overflow:hidden}
@@ -37,7 +37,7 @@
 </head>
 <body>
   <div class="login" id="login">
-    <h2>ðŸº CRM Alcateia</h2>
+    <h2>🐺 CRM Alcateia</h2>
     <div style="color:#8696a0">Digite a senha de acesso</div>
     <input id="key" type="password" placeholder="senha do painel" onkeydown="if(event.key==='Enter')saveKey()" />
     <button onclick="saveKey()">Entrar</button>
@@ -45,12 +45,13 @@
   </div>
 
   <div class="topbar" id="topbar">
-    <span class="brand">ðŸº Alcateia</span>
+    <span class="brand">🐺 Alcateia</span>
     <nav>
-      <a class="tab" href="./">ðŸ’¬ Inbox</a>
-      <a class="tab on" href="crm.html">ðŸ“Š CRM</a>
+      <a class="tab" href="./">💬 Inbox</a>
+      <a class="tab on" href="crm.html">📊 CRM</a>
+      <a class="tab" href="config.html">⚙️ Config</a>
     </nav>
-    <span class="right"><small id="count"></small> Â· <a onclick="logout()">sair</a></span>
+    <span class="right"><small id="count"></small> · <a onclick="logout()">sair</a></span>
   </div>
 
   <div class="board" id="board"></div>
@@ -59,17 +60,17 @@
 const API = "https://dttqxqnxlmkrclvhtqqx.supabase.co/functions/v1/inbox";
 const TEMP = {quente:"#ef4444",morno:"#f59e0b",frio:"#3b82f6"};
 const SC = {call_confirmada:"#22c55e",call_agendada:"#16a34a",qualificado:"#22c55e",em_atendimento:"#3b82f6",contato_realizado:"#64748b",novo_lead:"#64748b",precisa_humano:"#ef4444",risco_no_show:"#f97316",nao_confirmado:"#f97316",morno:"#f59e0b",nutricao:"#f59e0b",remarcar_reuniao:"#f59e0b",reuniao_remarcada:"#16a34a",reuniao_cancelada:"#6b7280",nao_qualificado:"#6b7280",sem_resposta:"#6b7280",perdido:"#6b7280",opt_out:"#6b7280",aguardando_agendamento:"#16a34a"};
-const SL = {novo_lead:"Novo",contato_realizado:"Contato feito",em_atendimento:"Em atendimento",qualificado:"Qualificado",aguardando_agendamento:"Aguardando agend.",call_agendada:"Call agendada",call_confirmada:"Confirmada",nao_confirmado:"NÃ£o confirmou",risco_no_show:"Risco no-show",remarcar_reuniao:"Remarcar",reuniao_remarcada:"Remarcada",reuniao_cancelada:"Cancelada",morno:"Morno",nutricao:"NutriÃ§Ã£o",nao_qualificado:"NÃ£o qualif.",sem_resposta:"Sem resposta",precisa_humano:"Atend. humano",perdido:"Perdido",opt_out:"Opt-out"};
+const SL = {novo_lead:"Novo",contato_realizado:"Contato feito",em_atendimento:"Em atendimento",qualificado:"Qualificado",aguardando_agendamento:"Aguardando agend.",call_agendada:"Call agendada",call_confirmada:"Confirmada",nao_confirmado:"Não confirmou",risco_no_show:"Risco no-show",remarcar_reuniao:"Remarcar",reuniao_remarcada:"Remarcada",reuniao_cancelada:"Cancelada",morno:"Morno",nutricao:"Nutrição",nao_qualificado:"Não qualif.",sem_resposta:"Sem resposta",precisa_humano:"Atend. humano",perdido:"Perdido",opt_out:"Opt-out"};
 
 // Etapas do pipeline (colunas do kanban). O lead cai na etapa do seu status (needs_human tem prioridade).
 const STAGES = [
-  {id:"novo",        label:"ðŸ†• Novos",            st:["novo_lead"]},
-  {id:"contato",     label:"ðŸ’¬ Em atendimento",   st:["contato_realizado","em_atendimento"]},
-  {id:"qualificado", label:"ðŸ”¥ Qualificados",     st:["qualificado","aguardando_agendamento"]},
-  {id:"reuniao",     label:"ðŸ“… ReuniÃ£o agendada", st:["call_agendada","call_confirmada","reuniao_remarcada"]},
-  {id:"atencao",     label:"âš ï¸ Precisa de atenÃ§Ã£o", st:["remarcar_reuniao","nao_confirmado","risco_no_show","precisa_humano"]},
-  {id:"morno",       label:"ðŸŒ¡ï¸ Morno / NutriÃ§Ã£o", st:["morno","nutricao"]},
-  {id:"perdido",     label:"âŒ Perdidos",          st:["nao_qualificado","sem_resposta","reuniao_cancelada","perdido","opt_out"]},
+  {id:"novo",        label:"🆕 Novos",            st:["novo_lead"]},
+  {id:"contato",     label:"💬 Em atendimento",   st:["contato_realizado","em_atendimento"]},
+  {id:"qualificado", label:"🔥 Qualificados",     st:["qualificado","aguardando_agendamento"]},
+  {id:"reuniao",     label:"📅 Reunião agendada", st:["call_agendada","call_confirmada","reuniao_remarcada"]},
+  {id:"atencao",     label:"⚠️ Precisa de atenção", st:["remarcar_reuniao","nao_confirmado","risco_no_show","precisa_humano"]},
+  {id:"morno",       label:"🌡️ Morno / Nutrição", st:["morno","nutricao"]},
+  {id:"perdido",     label:"❌ Perdidos",          st:["nao_qualificado","sem_resposta","reuniao_cancelada","perdido","opt_out"]},
 ];
 function stageOf(l){
   if(l.needs_human) return "atencao";
@@ -87,8 +88,8 @@ function badge(t,c){return '<span class="badge" style="background:'+c+'">'+esc(t
 function money(n){return "R$"+Number(n).toLocaleString("pt-BR");}
 function budgetText(l){
   if(l.budget_raw) return l.budget_raw;
-  if(l.budget_min!=null) return (l.budget_max&&l.budget_max!=l.budget_min)?money(l.budget_min)+"â€“"+money(l.budget_max):money(l.budget_min);
-  return "â€”";
+  if(l.budget_min!=null) return (l.budget_max&&l.budget_max!=l.budget_min)?money(l.budget_min)+"–"+money(l.budget_max):money(l.budget_min);
+  return "—";
 }
 
 function saveKey(){const v=document.getElementById("key").value.trim();if(!v)return;KEY=v;localStorage.setItem("alc_key",v);start();}
@@ -97,20 +98,20 @@ async function api(params){const r=await fetch(API+"?key="+encodeURIComponent(KE
 
 function card(l){
   const temp = TEMP[l.temperature]||"#374151";
-  const mkt = [l.market,l.role].filter(Boolean).join(" Â· ");
-  const appt = l.appt && l.appt.scheduled_at ? "ðŸ“… "+dm(l.appt.scheduled_at)+(l.appt.confirmation_status?" ("+esc(l.appt.confirmation_status)+")":"") : "";
+  const mkt = [l.market,l.role].filter(Boolean).join(" · ");
+  const appt = l.appt && l.appt.scheduled_at ? "📅 "+dm(l.appt.scheduled_at)+(l.appt.confirmation_status?" ("+esc(l.appt.confirmation_status)+")":"") : "";
   const tags = [
     badge(SL[l.status]||l.status, SC[l.status]||"#6b7280"),
     l.temperature?badge(l.temperature, temp):"",
-    l.needs_human?badge("âš ï¸ Humano","#ef4444"):"",
-    l.bot_paused?badge("â¸ bot off","#7c3aed"):"",
+    l.needs_human?badge("⚠️ Humano","#ef4444"):"",
+    l.bot_paused?badge("⏸ bot off","#7c3aed"):"",
   ].filter(Boolean).join(" ");
   return '<div class="card" style="border-left-color:'+temp+'" onclick="location.href=\'./?lead='+l.id+'\'">'
-    +'<div class="nm"><span>'+esc(l.name||"â€”")+'</span><span class="tm">'+hm(l.activity)+'</span></div>'
+    +'<div class="nm"><span>'+esc(l.name||"—")+'</span><span class="tm">'+hm(l.activity)+'</span></div>'
     +'<div class="meta">'
-      +'<span class="line">ðŸ’° '+esc(budgetText(l))+'</span>'
-      +(mkt?'<span class="line">ðŸŽ¯ '+esc(mkt)+'</span>':'')
-      +(l.phone?'<span class="line">ðŸ“± '+esc(l.phone)+'</span>':'')
+      +'<span class="line">💰 '+esc(budgetText(l))+'</span>'
+      +(mkt?'<span class="line">🎯 '+esc(mkt)+'</span>':'')
+      +(l.phone?'<span class="line">📱 '+esc(l.phone)+'</span>':'')
       +(appt?'<span class="line">'+appt+'</span>':'')
     +'</div>'
     +'<div class="tags">'+tags+'</div>'
@@ -138,7 +139,7 @@ async function start(){
     document.getElementById("topbar").style.display="flex";
     document.getElementById("board").style.display="flex";
     setInterval(load, 20000);
-  }catch(e){ document.getElementById("err").textContent="Senha invÃ¡lida."; localStorage.removeItem("alc_key"); }
+  }catch(e){ document.getElementById("err").textContent="Senha inválida."; localStorage.removeItem("alc_key"); }
 }
 if(KEY){ start(); }
 </script>

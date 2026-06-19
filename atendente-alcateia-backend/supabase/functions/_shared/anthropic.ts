@@ -17,15 +17,15 @@ export interface BrainContext {
   lead: Record<string, unknown>;
   /** Conversa: [{role:'user'|'assistant', content}]. user = lead, assistant = agente. */
   conversation: { role: "user" | "assistant"; content: string }[];
-  /** InstruÃ§Ã£o extra do sistema (ex.: "Esta Ã© a 1Âª mensagem; nenhuma resposta do lead ainda."). */
+  /** Instrução extra do sistema (ex.: "Esta é a 1ª mensagem; nenhuma resposta do lead ainda."). */
   situation?: string;
-  /** Persona/system prompt a usar (CONFIRMACAO x REMARKETING). PadrÃ£o: PERSONA_SYSTEM_PROMPT. */
+  /** Persona/system prompt a usar (CONFIRMACAO x REMARKETING). Padrão: PERSONA_SYSTEM_PROMPT. */
   personaPrompt?: string;
 }
 
 const TOOL = {
   name: "responder_lead",
-  description: "Registra a prÃ³xima mensagem ao lead e as decisÃµes do atendimento.",
+  description: "Registra a próxima mensagem ao lead e as decisões do atendimento.",
   input_schema: {
     type: "object",
     properties: {
@@ -34,16 +34,16 @@ const TOOL = {
       temperature: { type: "string", enum: ["quente", "morno", "frio"] },
       qualified: { type: "boolean" },
       needs_human: { type: "boolean", description: "true se precisa de atendimento humano (handoff)." },
-      send_calendly: { type: "boolean", description: "true para anexar o link do Calendly Ã  mensagem." },
-      notify_gabriel: { type: "boolean", description: "Sinal INTERNO (nÃ£o aparece pro lead): true quando o caso precisa de acompanhamento humano/operacional." },
+      send_calendly: { type: "boolean", description: "true para anexar o link do Calendly à mensagem." },
+      notify_gabriel: { type: "boolean", description: "Sinal INTERNO (não aparece pro lead): true quando o caso precisa de acompanhamento humano/operacional." },
       gabriel_message: { type: "string", description: "Resumo interno do caso para acompanhamento, se notify_gabriel." },
-      history_note: { type: "string", description: "Nota curta para o histÃ³rico do lead." },
+      history_note: { type: "string", description: "Nota curta para o histórico do lead." },
     },
     required: ["reply", "status", "temperature", "qualified", "needs_human", "send_calendly", "notify_gabriel"],
   },
 } as const;
 
-/** Chama o Claude com a persona e devolve a decisÃ£o estruturada. */
+/** Chama o Claude com a persona e devolve a decisão estruturada. */
 export async function callBrain(ctx: BrainContext): Promise<BrainDecision> {
   const apiKey = Deno.env.get("ANTHROPIC_API_KEY");
   if (!apiKey) throw new Error("ANTHROPIC_API_KEY ausente");
@@ -51,14 +51,14 @@ export async function callBrain(ctx: BrainContext): Promise<BrainDecision> {
 
   const system = `${ctx.personaPrompt ?? PERSONA_SYSTEM_PROMPT}
 
-CONTEXTO DO LEAD (dados do formulÃ¡rio e estado atual):
+CONTEXTO DO LEAD (dados do formulário e estado atual):
 ${JSON.stringify(ctx.lead, null, 2)}
-${ctx.situation ? `\nSITUAÃ‡ÃƒO: ${ctx.situation}` : ""}`;
+${ctx.situation ? `\nSITUAÇÃO: ${ctx.situation}` : ""}`;
 
   // Garante ao menos uma mensagem do "user" (a API exige).
   const messages = ctx.conversation.length > 0
     ? ctx.conversation
-    : [{ role: "user" as const, content: "(novo lead recebido pelo formulÃ¡rio; ainda nÃ£o respondeu)" }];
+    : [{ role: "user" as const, content: "(novo lead recebido pelo formulário; ainda não respondeu)" }];
 
   const res = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",

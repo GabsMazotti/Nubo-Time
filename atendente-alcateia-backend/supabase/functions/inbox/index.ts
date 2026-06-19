@@ -1,7 +1,9 @@
 // API JSON da inbox (protegida por ?key=PANEL_KEY). O Supabase bloqueia servir text/html
-// direto da function, entÃ£o o HTML/render fica em painel/inbox.html (consome esta API).
+// direto da function, então o HTML/render fica em painel/inbox.html (consome esta API).
 import { admin, addHistory } from "../_shared/db.ts";
 import { sendText } from "../_shared/zapi.ts";
+import { PERSONA_DEFAULTS } from "../_shared/persona.ts";
+import { loadConfig } from "../_shared/config.ts";
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
@@ -20,7 +22,15 @@ Deno.serve(async (req) => {
   const db = admin();
   const sel = url.searchParams.get("lead");
 
-  // --- AÃ§Ãµes de escrita (enviar mensagem manual / pausar-reativar o bot) ---
+  // --- Config editável (prompt/inteligência dos atendentes) ---
+  if (req.method === "GET" && url.searchParams.get("config")) {
+    const stored = await loadConfig();
+    const effective: Record<string, string> = {};
+    for (const k of Object.keys(PERSONA_DEFAULTS)) effective[k] = stored[k] ?? PERSONA_DEFAULTS[k];
+    return jsonR({ config: effective, defaults: PERSONA_DEFAULTS });
+  }
+
+  // --- Ações de escrita (enviar mensagem manual / pausar-reativar o bot) ---
   if (req.method === "POST") {
     const body = await req.json().catch(() => ({})) as Record<string, unknown>;
     if (body.action === "send" && body.lead_id && body.text) {
@@ -32,6 +42,22 @@ Deno.serve(async (req) => {
       await addHistory(db, lead.id, "manual_message", String(body.text), { sent_ok: sent.ok, reason: sent.reason });
       return jsonR({ ok: sent.ok, reason: sent.reason, bot_paused: true });
     }
+    if (body.action === "save_config" && body.config && typeof body.config === "object") {
+      // Salva só chaves conhecidas (evita lixo). Valor vazio = volta ao default (apaga o override).
+      const incoming = body.config as Record<string, unknown>;
+      let saved = 0;
+      for (const k of Object.keys(PERSONA_DEFAULTS)) {
+        if (!(k in incoming)) continue;
+        const value = String(incoming[k] ?? "").trim();
+        if (value === "" || value === PERSONA_DEFAULTS[k].trim()) {
+          await db.from("aa_config").delete().eq("key", k); // sem override -> usa default
+        } else {
+          await db.from("aa_config").upsert({ key: k, value }, { onConflict: "key" });
+        }
+        saved++;
+      }
+      return jsonR({ ok: true, saved });
+    }
     if (body.action === "toggle_bot" && body.lead_id) {
       const paused = !!body.paused;
       await db.from("aa_leads").update({ bot_paused: paused }).eq("id", body.lead_id);
@@ -41,7 +67,7 @@ Deno.serve(async (req) => {
     return jsonR({ error: "acao_desconhecida" }, 400);
   }
 
-  // Thread de um lead especÃ­fico
+  // Thread de um lead específico
   if (sel) {
     const { data: lead } = await db.from("aa_leads").select("*").eq("id", sel).maybeSingle();
     if (!lead) return jsonR({ error: "not_found" }, 404);
@@ -53,7 +79,7 @@ Deno.serve(async (req) => {
     return jsonR({ lead, messages: messages ?? [], appointment: appointment ?? null });
   }
 
-  // Lista de conversas / leads (com Ãºltima mensagem para preview/ordenaÃ§Ã£o e dados p/ o CRM)
+  // Lista de conversas / leads (com última mensagem para preview/ordenação e dados p/ o CRM)
   const { data: leads } = await db.from("aa_leads")
     .select("id,name,phone,status,temperature,needs_human,qualified,budget_raw,budget_min,budget_max,market,role,email,bot_paused,created_at,last_inbound_at,last_outbound_at")
     .limit(500);
@@ -62,7 +88,7 @@ Deno.serve(async (req) => {
   const lastByLead = new Map<string, { body: string; direction: string; created_at: string }>();
   for (const m of (recent ?? [])) if (!lastByLead.has(m.lead_id)) lastByLead.set(m.lead_id, m);
 
-  // Agendamento ativo (nÃ£o cancelado) por lead â€” para o card do CRM mostrar a reuniÃ£o.
+  // Agendamento ativo (não cancelado) por lead — para o card do CRM mostrar a reunião.
   const { data: appts } = await db.from("aa_appointments")
     .select("lead_id,scheduled_at,status,confirmation_status").neq("status", "cancelada")
     .order("scheduled_at", { ascending: false });

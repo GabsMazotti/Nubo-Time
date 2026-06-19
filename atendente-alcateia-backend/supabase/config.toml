@@ -1,4 +1,4 @@
-# Supabase config â€” Atendente Alcateia (preencha project_id ao ligar com `supabase link`)
+# Supabase config — Atendente Alcateia (preencha project_id ao ligar com `supabase link`)
 project_id = "atendente-alcateia"
 
 [functions.respondi-webhook]
@@ -11,11 +11,11 @@ verify_jwt = false
 verify_jwt = false
 
 [functions.scheduler-tick]
-# Protegida: sÃ³ o cron (com header de segredo) deve chamar. Mantemos verify_jwt=false e validamos por segredo no cÃ³digo.
+# Protegida: só o cron (com header de segredo) deve chamar. Mantemos verify_jwt=false e validamos por segredo no código.
 verify_jwt = false
 
 [functions.dashboard]
-# Painel de leitura protegido por senha (?key=PANEL_KEY) no prÃ³prio cÃ³digo.
+# Painel de leitura protegido por senha (?key=PANEL_KEY) no próprio código.
 verify_jwt = false
 
 [functions.inbox]

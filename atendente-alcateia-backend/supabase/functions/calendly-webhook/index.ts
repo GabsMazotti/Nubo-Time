@@ -3,6 +3,7 @@
 import { admin, addHistory } from "../_shared/db.ts";
 import { json } from "../_shared/cors.ts";
 import { cancelCalendlyEvent, parseCalendlyWebhook } from "../_shared/calendly.ts";
+import { REMINDER_TYPES } from "../_shared/pipeline.ts";
 
 async function findLead(db: ReturnType<typeof admin>, ev: { phone?: string; email?: string; name?: string }) {
   if (ev.phone) {
@@ -49,7 +50,7 @@ Deno.serve(async (req) => {
     }
     await db.from("aa_scheduled_tasks").update({ status: "canceled" })
       .eq("lead_id", lead.id).eq("status", "pending")
-      .in("type", ["meeting_confirmation_1h", "meeting_confirmation_30min", "meeting_noshow_check"]);
+      .in("type", REMINDER_TYPES);
     await db.from("aa_leads").update({ status: "reuniao_cancelada" }).eq("id", lead.id);
     await addHistory(db, lead.id, "calendly", "Reunião cancelada no Calendly.", { ev });
     return json({ ok: true, lead_id: lead.id, action: "canceled" });
@@ -61,7 +62,7 @@ Deno.serve(async (req) => {
   // Remarcação: cancela lembretes antigos
   await db.from("aa_scheduled_tasks").update({ status: "canceled" })
     .eq("lead_id", lead.id).eq("status", "pending")
-    .in("type", ["meeting_confirmation_1h", "meeting_confirmation_30min", "meeting_noshow_check"]);
+    .in("type", REMINDER_TYPES);
 
   // Supersede: se o lead já tinha OUTRA reunião ativa (evento diferente), cancela a antiga no Calendly.
   const { data: oldAppts } = await db.from("aa_appointments")
@@ -88,12 +89,13 @@ Deno.serve(async (req) => {
   await db.from("aa_leads").update({ status: "call_agendada", temperature: "quente" }).eq("id", lead.id);
   await addHistory(db, lead.id, "calendly", `Call ${ev.kind === "rescheduled" ? "remarcada" : "agendada"} para ${ev.scheduledAt}.`, { ev });
 
-  // Agenda os lembretes
+  // Agenda os lembretes (3h / 1h / 10min antes) + checagem de no-show (5min)
   const start = new Date(ev.scheduledAt).getTime();
   const tasks = [
+    { type: "meeting_confirmation_3h", at: start - 3 * 60 * 60_000 },
     { type: "meeting_confirmation_1h", at: start - 60 * 60_000 },
-    { type: "meeting_confirmation_30min", at: start - 30 * 60_000 },
-    { type: "meeting_noshow_check", at: start - 15 * 60_000 },
+    { type: "meeting_confirmation_10min", at: start - 10 * 60_000 },
+    { type: "meeting_noshow_check", at: start - 5 * 60_000 },
   ].filter((t) => t.at > Date.now()); // só agenda lembretes futuros
 
   if (tasks.length) {

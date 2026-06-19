@@ -35,3 +35,12 @@ export const STATUS_LABEL: Record<LeadStatus, string> = {
 export function isValidStatus(s: string): s is LeadStatus {
   return (STATUS as readonly string[]).includes(s);
 }
+
+/** Tipos de tarefa de lembrete/no-show da reunião (usados para cancelar/recriar ao agendar/remarcar). */
+export const REMINDER_TYPES = [
+  "meeting_confirmation_3h",
+  "meeting_confirmation_1h",
+  "meeting_confirmation_10min",
+  "meeting_confirmation_30min", // legado
+  "meeting_noshow_check",
+];
