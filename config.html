@@ -79,6 +79,22 @@ const SECTIONS = [
     { key:"msg_confirmacao", label:"✅ Resposta quando o lead confirma a call", hint:"Variável: {quando}", rows:4 },
     { key:"msg_remarcacao", label:"🔁 Resposta quando o lead quer remarcar", hint:"Variáveis: {nome}, {url}", rows:4 },
   ]},
+  { title: "Perguntas & respostas (FAQ)", note:"Respostas-base para os assuntos mais comuns. A IA usa como base e adapta à conversa — não cola literal.", fields: [
+    { key:"faq_o_que_e", label:"❓ O que é a Alcateia? / O que vocês fazem?", hint:"", rows:3 },
+    { key:"faq_como_funciona", label:"❓ Como funciona o trabalho de vocês?", hint:"", rows:3 },
+    { key:"faq_preco", label:"💰 Quanto custa? / Qual o valor?", hint:"", rows:3 },
+    { key:"faq_garantia", label:"🛡️ Vocês garantem resultado? Quanto vou faturar?", hint:"", rows:3 },
+    { key:"faq_prazo", label:"⏱️ Em quanto tempo vejo resultado? Quando começa?", hint:"", rows:3 },
+    { key:"faq_diferencial", label:"⭐ Qual o diferencial? Por que vocês?", hint:"", rows:3 },
+    { key:"faq_cases", label:"📈 Têm cases? Com quem já trabalharam?", hint:"", rows:3 },
+    { key:"faq_call", label:"📞 Como é a call? Quanto dura? Com quem?", hint:"", rows:3 },
+    { key:"faq_contrato", label:"📄 Tem contrato / fidelidade / multa?", hint:"", rows:3 },
+    { key:"faq_pagamento", label:"💳 Como é o pagamento? Parcela?", hint:"", rows:3 },
+    { key:"faq_iniciante", label:"🌱 Ainda não tenho operação / quero começar do zero", hint:"", rows:3 },
+    { key:"faq_plataforma", label:"🎰 Vocês fornecem a casa/plataforma de apostas?", hint:"", rows:3 },
+    { key:"faq_concorrencia", label:"🤝 Já tenho agência / gestor de tráfego", hint:"", rows:3 },
+    { key:"faq_robo", label:"🤖 Você é robô? É você mesmo?", hint:"", rows:3 },
+  ]},
 ];
 
 function esc(s){return String(s==null?"":s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));}
@@ -94,6 +110,7 @@ async function load(){
   let html = '<div class="intro">Edite o que o atendente <b>fala e como pensa</b>. As alterações valem <b>na hora</b>, sem precisar publicar nada. As regras de segurança do atendente (identidade, formato em blocos, etapas do funil) são fixas e protegidas.</div>';
   for(const sec of SECTIONS){
     html += '<div class="sechead">'+sec.title+'</div>';
+    if(sec.note) html += '<div class="intro" style="margin:-2px 4px 10px">'+esc(sec.note)+'</div>';
     for(const f of sec.fields){
       html += '<div class="field"><h3>'+f.label+'</h3><div class="hint">'+esc(f.hint)+'</div>'
         + '<textarea id="f_'+f.key+'" rows="'+(f.rows||5)+'">'+esc(cfg[f.key]!=null?cfg[f.key]:"")+'</textarea>'
