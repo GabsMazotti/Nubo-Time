@@ -5,6 +5,7 @@ import { json } from "../_shared/cors.ts";
 import { parseInbound, sendBlocks, sendText } from "../_shared/zapi.ts";
 import { callBrain } from "../_shared/anthropic.ts";
 import { isValidStatus, REMINDER_TYPES } from "../_shared/pipeline.ts";
+import { QUALIFY_FLOOR } from "../_shared/qualification.ts";
 import { buildPersonas, buildTemplates, CALENDLY_URL, TEMPLATES } from "../_shared/persona.ts";
 import { loadConfig } from "../_shared/config.ts";
 import { formatDataHora, formatDiaHora } from "../_shared/util.ts";
@@ -185,11 +186,18 @@ Deno.serve(async (req) => {
         }
       }
 
+      // Qualificação ESTÁVEL: uma vez qualificado (pelo cérebro, por já estar qualificado, ou por orçamento
+      // de formulário >= R$10k) permanece qualificado — a não ser que seja explicitamente desqualificado.
+      const desqualificado = ["nao_qualificado", "opt_out", "perdido"].includes(newStatus);
+      const qualified = desqualificado
+        ? false
+        : (decision.qualified || lead.qualified === true || Number(lead.budget_min ?? 0) >= QUALIFY_FLOOR);
+
       // Aplica status/decisões
       await db.from("aa_leads").update({
         status: newStatus,
         temperature: decision.temperature,
-        qualified: decision.qualified,
+        qualified,
         needs_human: decision.needs_human || lead.needs_human,
         opted_out: newStatus === "opt_out" ? true : lead.opted_out,
         last_outbound_at: reply.trim() ? new Date().toISOString() : lead.last_outbound_at,
@@ -218,8 +226,9 @@ Deno.serve(async (req) => {
         }
       }
 
-      // Avisa o Gabriel (sinal interno) se necessário
-      if (decision.notify_gabriel) {
+      // Avisa o Gabriel (sinal interno) — SÓ quando há real necessidade humana (evita aviso em venda normal,
+      // ex.: agendar/qualificar lead de orçamento alto). Exige needs_human/precisa_humano junto.
+      if (decision.notify_gabriel && (decision.needs_human || newStatus === "precisa_humano")) {
         const gabriel = Deno.env.get("GABRIEL_WHATSAPP_NUMBER");
         const msg = decision.gabriel_message ?? `Atendimento do lead ${lead.name} precisa da sua atenção.`;
         if (gabriel) {
