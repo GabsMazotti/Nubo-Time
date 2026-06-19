@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Inbox Â· Atendente Alcateia</title>
+<title>Inbox · Atendente Alcateia</title>
 <style>
   :root{color-scheme:dark} *{box-sizing:border-box}
   body{margin:0;height:100vh;background:#0b141a;color:#e9edef;font:14px/1.45 system-ui,Segoe UI,Roboto,sans-serif;overflow:hidden}
@@ -55,7 +55,7 @@
 </head>
 <body>
   <div class="login" id="login">
-    <h2>ðŸº Inbox Alcateia</h2>
+    <h2>🐺 Inbox Alcateia</h2>
     <div style="color:#8696a0">Digite a senha de acesso</div>
     <input id="key" type="password" placeholder="senha do painel" onkeydown="if(event.key==='Enter')saveKey()" />
     <button onclick="saveKey()">Entrar</button>
@@ -63,39 +63,39 @@
   </div>
 
   <div class="topbar" id="topbar">
-    <span class="brand">ðŸº Alcateia</span>
+    <span class="brand">🐺 Alcateia</span>
     <nav>
-      <a class="tab on" href="./">ðŸ’¬ Inbox</a>
-      <a class="tab" href="crm.html">ðŸ“Š CRM</a>
-      <a class="tab" href="config.html">âš™ï¸ Config</a>
+      <a class="tab on" href="./">💬 Inbox</a>
+      <a class="tab" href="crm.html">📊 CRM</a>
+      <a class="tab" href="config.html">⚙️ Config</a>
     </nav>
-    <span class="right"><small id="count"></small> Â· <a onclick="logout()">sair</a></span>
+    <span class="right"><small id="count"></small> · <a onclick="logout()">sair</a></span>
   </div>
 
   <div class="app" id="app">
     <div class="list">
-      <div class="lhead"><span>ðŸº Inbox Alcateia</span><span><small id="count2"></small></span></div>
+      <div class="lhead"><span>🐺 Inbox Alcateia</span><span><small id="count2"></small></span></div>
       <div class="chips" id="chips"></div>
       <div class="convs" id="convs"></div>
     </div>
-    <div class="thread" id="thread"><div class="empty">â† Selecione uma conversa</div></div>
+    <div class="thread" id="thread"><div class="empty">← Selecione uma conversa</div></div>
   </div>
 
 <script>
 const API = "https://dttqxqnxlmkrclvhtqqx.supabase.co/functions/v1/inbox";
 const TEMP = {quente:"#ef4444",morno:"#f59e0b",frio:"#3b82f6"};
 const SC = {call_confirmada:"#22c55e",call_agendada:"#16a34a",qualificado:"#22c55e",em_atendimento:"#3b82f6",contato_realizado:"#64748b",novo_lead:"#64748b",precisa_humano:"#ef4444",risco_no_show:"#f97316",nao_confirmado:"#f97316",morno:"#f59e0b",nutricao:"#f59e0b",remarcar_reuniao:"#f59e0b",reuniao_remarcada:"#16a34a",reuniao_cancelada:"#6b7280",nao_qualificado:"#6b7280",sem_resposta:"#6b7280",perdido:"#6b7280",opt_out:"#6b7280",aguardando_agendamento:"#16a34a"};
-const SL = {novo_lead:"Novo",contato_realizado:"Contato feito",em_atendimento:"Em atendimento",qualificado:"Qualificado",aguardando_agendamento:"Aguardando agend.",call_agendada:"Call agendada",call_confirmada:"Confirmada",nao_confirmado:"NÃ£o confirmou",risco_no_show:"Risco no-show",remarcar_reuniao:"Remarcar",reuniao_remarcada:"Remarcada",reuniao_cancelada:"Cancelada",morno:"Morno",nutricao:"NutriÃ§Ã£o",nao_qualificado:"NÃ£o qualif.",sem_resposta:"Sem resposta",precisa_humano:"Atend. humano",perdido:"Perdido",opt_out:"Opt-out"};
+const SL = {novo_lead:"Novo",contato_realizado:"Contato feito",em_atendimento:"Em atendimento",qualificado:"Qualificado",aguardando_agendamento:"Aguardando agend.",call_agendada:"Call agendada",call_confirmada:"Confirmada",nao_confirmado:"Não confirmou",risco_no_show:"Risco no-show",remarcar_reuniao:"Remarcar",reuniao_remarcada:"Remarcada",reuniao_cancelada:"Cancelada",morno:"Morno",nutricao:"Nutrição",nao_qualificado:"Não qualif.",sem_resposta:"Sem resposta",precisa_humano:"Atend. humano",perdido:"Perdido",opt_out:"Opt-out"};
 
-// Categorias (folders) â€” cada lead cai em UMA, por prioridade
+// Categorias (folders) — cada lead cai em UMA, por prioridade
 const CATS = [
   {id:"todos", label:"Todos"},
-  {id:"gabriel", label:"âš ï¸ Precisa de atendimento humano"},
-  {id:"reuniao", label:"ðŸ“… ReuniÃ£o"},
-  {id:"qualificado", label:"ðŸ”¥ Qualificados"},
-  {id:"atendimento", label:"ðŸ’¬ Em atendimento"},
-  {id:"morno", label:"ðŸŒ¡ï¸ Morno/NutriÃ§Ã£o"},
-  {id:"desqualificado", label:"âŒ Desqualificados"},
+  {id:"gabriel", label:"⚠️ Precisa de atendimento humano"},
+  {id:"reuniao", label:"📅 Reunião"},
+  {id:"qualificado", label:"🔥 Qualificados"},
+  {id:"atendimento", label:"💬 Em atendimento"},
+  {id:"morno", label:"🌡️ Morno/Nutrição"},
+  {id:"desqualificado", label:"❌ Desqualificados"},
 ];
 function catOf(l){
   const s=l.status;
@@ -136,12 +136,12 @@ function renderList(){
   document.getElementById("count").textContent = allLeads.length+" leads";
   document.getElementById("count2").textContent = items.length+" conversas";
   document.getElementById("convs").innerHTML = items.map(l=>{
-    const prev=l.last?(l.last.direction==="outbound"?"ðŸ¤– ":"")+(l.last.body||""):"â€”";
+    const prev=l.last?(l.last.direction==="outbound"?"🤖 ":"")+(l.last.body||""):"—";
     return '<div class="conv '+(l.id===current?"active":"")+'" onclick="openLead(\''+l.id+'\')">'
       +'<div class="av" style="background:'+(TEMP[l.temperature]||"#374151")+'">'+esc(initials(l.name))+'</div>'
       +'<div class="cmeta"><div class="crow"><span class="cname">'+esc(l.name)+'</span><span class="ctime">'+hm(l.activity)+'</span></div>'
       +'<div class="crow"><span class="cprev">'+esc(prev).slice(0,60)+'</span></div>'
-      +'<div>'+badge(SL[l.status]||l.status,SC[l.status]||"#6b7280")+(l.needs_human?' '+badge("âš ï¸ Humano","#ef4444"):"")+(l.bot_paused?' '+badge("â¸ bot off","#7c3aed"):"")+'</div></div></div>';
+      +'<div>'+badge(SL[l.status]||l.status,SC[l.status]||"#6b7280")+(l.needs_human?' '+badge("⚠️ Humano","#ef4444"):"")+(l.bot_paused?' '+badge("⏸ bot off","#7c3aed"):"")+'</div></div></div>';
   }).join("") || '<div class="empty">Nenhuma conversa nessa categoria</div>';
 }
 
@@ -154,14 +154,14 @@ async function openLead(id){
   const L=d.lead, ap=d.appointment, paused=!!L.bot_paused;
   const bubbles=(d.messages||[]).map(m=>{
     const manual=m.meta&&m.meta.kind==="manual";
-    return '<div class="b '+(m.direction==="outbound"?"out":"in")+(manual?" manual":"")+'">'+esc(m.body)+'<span class="t">'+(manual?"ðŸ‘¤ ":"")+hm(m.created_at)+'</span></div>';
+    return '<div class="b '+(m.direction==="outbound"?"out":"in")+(manual?" manual":"")+'">'+esc(m.body)+'<span class="t">'+(manual?"👤 ":"")+hm(m.created_at)+'</span></div>';
   }).join("")||'<div class="empty">Sem mensagens.</div>';
-  const apptLine=ap?" Â· ðŸ“… "+dm(ap.scheduled_at)+" ("+esc(ap.confirmation_status)+")":"";
+  const apptLine=ap?" · 📅 "+dm(ap.scheduled_at)+" ("+esc(ap.confirmation_status)+")":"";
   document.getElementById("thread").innerHTML=
     '<div class="thead"><div class="av" style="background:'+(TEMP[L.temperature]||"#374151")+'">'+esc(initials(L.name))+'</div>'
     +'<div class="grow"><div class="cname">'+esc(L.name)+' '+badge(SL[L.status]||L.status,SC[L.status]||"#6b7280")+'</div>'
-    +'<div class="sub2">'+(esc(L.phone)||"â€”")+' Â· '+(esc(L.budget_raw)||"sem orÃ§amento")+apptLine+'</div></div>'
-    +'<button class="botbtn '+(paused?"bot-off":"bot-on")+'" onclick="toggleBot(\''+id+'\','+(!paused)+')">'+(paused?"â¸ Bot pausado â€” reativar":"ðŸ¤– Bot ativo â€” pausar")+'</button></div>'
+    +'<div class="sub2">'+(esc(L.phone)||"—")+' · '+(esc(L.budget_raw)||"sem orçamento")+apptLine+'</div></div>'
+    +'<button class="botbtn '+(paused?"bot-off":"bot-on")+'" onclick="toggleBot(\''+id+'\','+(!paused)+')">'+(paused?"⏸ Bot pausado — reativar":"🤖 Bot ativo — pausar")+'</button></div>'
     +'<div class="msgs" id="msgs">'+bubbles+'</div>'
     +'<div class="reply"><textarea id="draft" placeholder="Escreva uma mensagem (envia pelo WhatsApp e pausa o bot)..." oninput="drafts[current]=this.value"></textarea><button onclick="sendMsg()">Enviar</button></div>';
   const ta=document.getElementById("draft"); if(ta) ta.value=drafts[id]||"";
@@ -189,7 +189,7 @@ async function start(){
     const deep=new URLSearchParams(location.search).get("lead");
     if(deep) openLead(deep);
     setInterval(()=>{loadList(); if(current) openLead(current);}, 20000);
-  }catch(e){document.getElementById("err").textContent="Senha invÃ¡lida.";localStorage.removeItem("alc_key");}
+  }catch(e){document.getElementById("err").textContent="Senha inválida.";localStorage.removeItem("alc_key");}
 }
 if(KEY){ start(); }
 </script>

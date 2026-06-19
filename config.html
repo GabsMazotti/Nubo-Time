@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>ConfiguraÃ§Ãµes Â· Atendente Alcateia</title>
+<title>Configurações · Atendente Alcateia</title>
 <style>
   :root{color-scheme:dark} *{box-sizing:border-box}
   body{margin:0;height:100vh;background:#0b141a;color:#e9edef;font:14px/1.45 system-ui,Segoe UI,Roboto,sans-serif;overflow:hidden}
@@ -37,7 +37,7 @@
 </head>
 <body>
   <div class="login" id="login">
-    <h2>ðŸº ConfiguraÃ§Ãµes Alcateia</h2>
+    <h2>🐺 Configurações Alcateia</h2>
     <div style="color:#8696a0">Digite a senha de acesso</div>
     <input id="key" type="password" placeholder="senha do painel" onkeydown="if(event.key==='Enter')saveKey()" />
     <button onclick="saveKey()">Entrar</button>
@@ -45,11 +45,11 @@
   </div>
 
   <div class="topbar" id="topbar">
-    <span class="brand">ðŸº Alcateia</span>
+    <span class="brand">🐺 Alcateia</span>
     <nav>
-      <a class="tab" href="./">ðŸ’¬ Inbox</a>
-      <a class="tab" href="crm.html">ðŸ“Š CRM</a>
-      <a class="tab on" href="config.html">âš™ï¸ Config</a>
+      <a class="tab" href="./">💬 Inbox</a>
+      <a class="tab" href="crm.html">📊 CRM</a>
+      <a class="tab on" href="config.html">⚙️ Config</a>
     </nav>
     <span class="right"><a onclick="logout()">sair</a></span>
   </div>
@@ -58,7 +58,7 @@
 
   <div class="savebar" id="savebar" style="display:none">
     <span class="msg" id="savemsg"></span>
-    <button id="savebtn" onclick="saveAll()">Salvar alteraÃ§Ãµes</button>
+    <button id="savebtn" onclick="saveAll()">Salvar alterações</button>
   </div>
 
 <script>
@@ -66,18 +66,18 @@ const API = "https://dttqxqnxlmkrclvhtqqx.supabase.co/functions/v1/inbox";
 let KEY = localStorage.getItem("alc_key") || "";
 let DEFAULTS = {};
 
-// Campos editÃ¡veis (mesmas chaves do backend). Ordem e textos de ajuda sÃ³ para o painel.
+// Campos editáveis (mesmas chaves do backend). Ordem e textos de ajuda só para o painel.
 const SECTIONS = [
-  { title: "InteligÃªncia dos atendentes (prompt)", fields: [
-    { key:"prompt_base", label:"ðŸ§  Base / personalidade (vale pros 2 atendentes)", hint:"Quem Ã© o Gabriel, o negÃ³cio, tom de voz, a regra de qualificaÃ§Ã£o (R$10k), objeÃ§Ãµes e compliance.", rows:16 },
-    { key:"papel_confirmacao", label:"ðŸ“… Atendente de ConfirmaÃ§Ã£o (lead que JÃ agendou)", hint:"Como agir com quem jÃ¡ marcou a call: acolher, confirmar, remarcar.", rows:9 },
-    { key:"papel_remarketing", label:"ðŸ”¥ Atendente de Abordagem (lead que NÃƒO agendou)", hint:"Como reengajar, qualificar e conduzir pra call quem nÃ£o agendou.", rows:7 },
+  { title: "Inteligência dos atendentes (prompt)", fields: [
+    { key:"prompt_base", label:"🧠 Base / personalidade (vale pros 2 atendentes)", hint:"Quem é o Gabriel, o negócio, tom de voz, a regra de qualificação (R$10k), objeções e compliance.", rows:16 },
+    { key:"papel_confirmacao", label:"📅 Atendente de Confirmação (lead que JÁ agendou)", hint:"Como agir com quem já marcou a call: acolher, confirmar, remarcar.", rows:9 },
+    { key:"papel_remarketing", label:"🔥 Atendente de Abordagem (lead que NÃO agendou)", hint:"Como reengajar, qualificar e conduzir pra call quem não agendou.", rows:7 },
   ]},
-  { title: "Mensagens-padrÃ£o", fields: [
-    { key:"msg_qualificado", label:"ðŸ’¬ 1Âª mensagem â€” qualificado que nÃ£o agendou", hint:"VariÃ¡vel disponÃ­vel: {nome}", rows:5 },
-    { key:"msg_agendou", label:"ðŸ’¬ 1Âª mensagem â€” quem jÃ¡ agendou", hint:"VariÃ¡veis: {nome}, {quando}", rows:4 },
-    { key:"msg_confirmacao", label:"âœ… Resposta quando o lead confirma a call", hint:"VariÃ¡vel: {quando}", rows:4 },
-    { key:"msg_remarcacao", label:"ðŸ” Resposta quando o lead quer remarcar", hint:"VariÃ¡veis: {nome}, {url}", rows:4 },
+  { title: "Mensagens-padrão", fields: [
+    { key:"msg_qualificado", label:"💬 1ª mensagem — qualificado que não agendou", hint:"Variável disponível: {nome}", rows:5 },
+    { key:"msg_agendou", label:"💬 1ª mensagem — quem já agendou", hint:"Variáveis: {nome}, {quando}", rows:4 },
+    { key:"msg_confirmacao", label:"✅ Resposta quando o lead confirma a call", hint:"Variável: {quando}", rows:4 },
+    { key:"msg_remarcacao", label:"🔁 Resposta quando o lead quer remarcar", hint:"Variáveis: {nome}, {url}", rows:4 },
   ]},
 ];
 
@@ -91,19 +91,19 @@ async function load(){
   const d = await r.json();
   DEFAULTS = d.defaults || {};
   const cfg = d.config || {};
-  let html = '<div class="intro">Edite o que o atendente <b>fala e como pensa</b>. As alteraÃ§Ãµes valem <b>na hora</b>, sem precisar publicar nada. As regras de seguranÃ§a do atendente (identidade, formato em blocos, etapas do funil) sÃ£o fixas e protegidas.</div>';
+  let html = '<div class="intro">Edite o que o atendente <b>fala e como pensa</b>. As alterações valem <b>na hora</b>, sem precisar publicar nada. As regras de segurança do atendente (identidade, formato em blocos, etapas do funil) são fixas e protegidas.</div>';
   for(const sec of SECTIONS){
     html += '<div class="sechead">'+sec.title+'</div>';
     for(const f of sec.fields){
       html += '<div class="field"><h3>'+f.label+'</h3><div class="hint">'+esc(f.hint)+'</div>'
         + '<textarea id="f_'+f.key+'" rows="'+(f.rows||5)+'">'+esc(cfg[f.key]!=null?cfg[f.key]:"")+'</textarea>'
-        + '<div class="rowbtn"><button class="reset" onclick="resetField(\''+f.key+'\')">â†© restaurar padrÃ£o</button></div></div>';
+        + '<div class="rowbtn"><button class="reset" onclick="resetField(\''+f.key+'\')">↩ restaurar padrão</button></div></div>';
     }
   }
   document.getElementById("inner").innerHTML = html;
 }
 
-function resetField(k){ const ta=document.getElementById("f_"+k); if(ta){ ta.value = DEFAULTS[k]||""; flash("Campo restaurado ao padrÃ£o (lembre de salvar)."); } }
+function resetField(k){ const ta=document.getElementById("f_"+k); if(ta){ ta.value = DEFAULTS[k]||""; flash("Campo restaurado ao padrão (lembre de salvar)."); } }
 function flash(m){ document.getElementById("savemsg").textContent=m; }
 
 async function saveAll(){
@@ -113,8 +113,8 @@ async function saveAll(){
   try{
     const r = await fetch(API+"?key="+encodeURIComponent(KEY),{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"save_config",config})});
     const d = await r.json();
-    if(d.ok){ flash("âœ… Salvo! JÃ¡ estÃ¡ valendo no atendimento."); } else { flash("âŒ Erro ao salvar: "+(d.error||"")); }
-  }catch(e){ flash("âŒ Falha de conexÃ£o."); }
+    if(d.ok){ flash("✅ Salvo! Já está valendo no atendimento."); } else { flash("❌ Erro ao salvar: "+(d.error||"")); }
+  }catch(e){ flash("❌ Falha de conexão."); }
   btn.disabled=false;
 }
 
@@ -125,7 +125,7 @@ async function start(){
     document.getElementById("topbar").style.display="flex";
     document.getElementById("wrap").style.display="block";
     document.getElementById("savebar").style.display="flex";
-  }catch(e){ document.getElementById("err").textContent="Senha invÃ¡lida."; localStorage.removeItem("alc_key"); }
+  }catch(e){ document.getElementById("err").textContent="Senha inválida."; localStorage.removeItem("alc_key"); }
 }
 if(KEY){ start(); }
 </script>
