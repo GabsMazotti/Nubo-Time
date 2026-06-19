@@ -1,5 +1,5 @@
 // Worker do cron (rode a cada 1 minuto). Processa as tarefas vencidas:
-// lembretes de confirmação (1h/30min), checagem de no-show, e follow-ups do 1º contato.
+// lembretes de confirmaÃ§Ã£o (1h/30min), checagem de no-show, e follow-ups do 1Âº contato.
 import { admin, addHistory } from "../_shared/db.ts";
 import { json } from "../_shared/cors.ts";
 import { sendText } from "../_shared/zapi.ts";
@@ -8,7 +8,7 @@ import { formatHorario, formatDataHora } from "../_shared/util.ts";
 
 async function notifyGabriel(db: ReturnType<typeof admin>, leadId: string, msg: string) {
   const gabriel = Deno.env.get("GABRIEL_WHATSAPP_NUMBER");
-  if (!gabriel) { await addHistory(db, leadId, "gabriel_notify_skipped", "GABRIEL_WHATSAPP_NUMBER não configurado.", { msg }); return; }
+  if (!gabriel) { await addHistory(db, leadId, "gabriel_notify_skipped", "GABRIEL_WHATSAPP_NUMBER nÃ£o configurado.", { msg }); return; }
   const g = await sendText(gabriel, msg);
   await addHistory(db, leadId, "gabriel_notified", msg, { sent_ok: g.ok, reason: g.reason });
 }
@@ -19,7 +19,7 @@ async function leadReplied(lead: Record<string, unknown>): Promise<boolean> {
 }
 
 Deno.serve(async (req) => {
-  // Proteção opcional por segredo (header x-cron-secret)
+  // ProteÃ§Ã£o opcional por segredo (header x-cron-secret)
   const secret = Deno.env.get("SCHEDULER_SECRET");
   if (secret && req.headers.get("x-cron-secret") !== secret) return json({ error: "unauthorized" }, 401);
 
@@ -39,7 +39,7 @@ Deno.serve(async (req) => {
     const { data: claimed } = await db.from("aa_scheduled_tasks")
       .update({ status: "processing", attempts: (task.attempts ?? 0) + 1 })
       .eq("id", task.id).eq("status", "pending").select().maybeSingle();
-    if (!claimed) continue; // outra execução pegou
+    if (!claimed) continue; // outra execuÃ§Ã£o pegou
 
     try {
       const { data: lead } = await db.from("aa_leads").select("*").eq("id", task.lead_id).single();
@@ -47,10 +47,16 @@ Deno.serve(async (req) => {
       const phone = lead?.phone as string | null;
       let done = true;
 
-      // follow-ups do 1º contato: só se o lead NÃO respondeu
+      // Bot pausado para este lead (humano assumiu) -> nÃ£o dispara nada automÃ¡tico.
+      if (lead?.bot_paused) {
+        await db.from("aa_scheduled_tasks").update({ status: "canceled", executed_at: new Date().toISOString() }).eq("id", task.id);
+        processed++; continue;
+      }
+
+      // follow-ups do 1Âº contato: sÃ³ se o lead NÃƒO respondeu
       if (task.type.startsWith("followup_first_contact")) {
         if (await leadReplied(lead)) {
-          // já respondeu -> não precisa de follow-up
+          // jÃ¡ respondeu -> nÃ£o precisa de follow-up
           await db.from("aa_scheduled_tasks").update({ status: "canceled" }).eq("id", task.id);
           processed++; continue;
         }
@@ -67,11 +73,15 @@ Deno.serve(async (req) => {
         }
       }
 
-      // lembretes de reunião
+      // lembretes de reuniÃ£o
       else if (task.type === "meeting_confirmation_1h" || task.type === "meeting_confirmation_30min") {
         const { data: appt } = await db.from("aa_appointments").select("*").eq("id", task.appointment_id).maybeSingle();
         if (appt && appt.status !== "cancelada" && appt.confirmation_status === "pendente" && phone) {
-          const horario = appt.scheduled_at ? formatHorario(appt.scheduled_at) : "o horário combinado";
+          // Anti-duplicaÃ§Ã£o: cancela quaisquer OUTROS lembretes pendentes do mesmo tipo p/ este lead
+          // (corrida respondi-webhook x calendly-webhook pode ter criado lembretes em dobro).
+          await db.from("aa_scheduled_tasks").update({ status: "canceled" })
+            .eq("lead_id", lead.id).eq("type", task.type).eq("status", "pending").neq("id", task.id);
+          const horario = appt.scheduled_at ? formatHorario(appt.scheduled_at) : "o horÃ¡rio combinado";
           const body = task.type === "meeting_confirmation_1h"
             ? TEMPLATES.confirmation1h(nome, horario)
             : TEMPLATES.confirmation30min(nome, horario);
@@ -87,9 +97,9 @@ Deno.serve(async (req) => {
         if (appt && appt.status !== "cancelada" && appt.confirmation_status === "pendente") {
           await db.from("aa_appointments").update({ confirmation_status: "sem_resposta", status: "nao_confirmada" }).eq("id", appt.id);
           await db.from("aa_leads").update({ status: "risco_no_show" }).eq("id", lead.id);
-          await addHistory(db, lead.id, "status_change", "Lead não confirmou presença (risco de no-show).");
-          const horario = appt.scheduled_at ? formatDataHora(appt.scheduled_at) : "o horário combinado";
-          await notifyGabriel(db, lead.id, TEMPLATES.gabrielNoShowRisk({ nome, whatsapp: phone ?? "—", horario }));
+          await addHistory(db, lead.id, "status_change", "Lead nÃ£o confirmou presenÃ§a (risco de no-show).");
+          const horario = appt.scheduled_at ? formatDataHora(appt.scheduled_at) : "o horÃ¡rio combinado";
+          await notifyGabriel(db, lead.id, TEMPLATES.gabrielNoShowRisk({ nome, whatsapp: phone ?? "â€”", horario }));
         }
       } else {
         done = true; // tipo desconhecido -> apenas conclui
