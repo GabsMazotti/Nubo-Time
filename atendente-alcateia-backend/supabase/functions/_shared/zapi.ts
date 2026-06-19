@@ -1,4 +1,4 @@
-// Integração Z-API (WhatsApp). Envia mensagens de texto.
+// IntegraÃ§Ã£o Z-API (WhatsApp). Envia mensagens de texto.
 // Docs: https://developer.z-api.io/
 
 export interface SendResult {
@@ -20,8 +20,8 @@ function creds() {
 export async function sendText(phone: string, message: string): Promise<SendResult> {
   const c = creds();
   if (!c.instance || !c.token) {
-    // Modo dry-run (sem credenciais ainda): não envia, mas não quebra o fluxo.
-    console.warn("[zapi] credenciais ausentes — mensagem NÃO enviada (dry-run):", phone, message.slice(0, 60));
+    // Modo dry-run (sem credenciais ainda): nÃ£o envia, mas nÃ£o quebra o fluxo.
+    console.warn("[zapi] credenciais ausentes â€” mensagem NÃƒO enviada (dry-run):", phone, message.slice(0, 60));
     return { ok: false, reason: "sem_credenciais_zapi" };
   }
   const url = `${c.base}/instances/${c.instance}/token/${c.token}/send-text`;
@@ -40,6 +40,33 @@ export async function sendText(phone: string, message: string): Promise<SendResu
   } catch (e) {
     return { ok: false, reason: `zapi_fetch_error: ${(e as Error).message}` };
   }
+}
+
+function sleep(ms: number) { return new Promise((r) => setTimeout(r, ms)); }
+
+/** Quebra o texto em blocos (parÃ¡grafos separados por linha em branco). */
+export function splitBlocks(text: string): string[] {
+  return text.split(/\n{2,}/).map((b) => b.trim()).filter((b) => b.length > 0);
+}
+
+export interface BlockSendResult {
+  ok: boolean;
+  results: { body: string; id?: string; ok: boolean; reason?: string }[];
+}
+
+/**
+ * Envia o texto em BLOCOS (cada parÃ¡grafo vira uma mensagem separada), com uma pequena pausa
+ * entre elas, pra soar como uma conversa natural de WhatsApp em vez de um bloco Ãºnico.
+ */
+export async function sendBlocks(phone: string, text: string, delayMs = 1100): Promise<BlockSendResult> {
+  const blocks = splitBlocks(text);
+  const results: BlockSendResult["results"] = [];
+  for (let i = 0; i < blocks.length; i++) {
+    if (i > 0) await sleep(delayMs);
+    const r = await sendText(phone, blocks[i]);
+    results.push({ body: blocks[i], id: r.id, ok: r.ok, reason: r.reason });
+  }
+  return { ok: results.length > 0 && results.every((r) => r.ok), results };
 }
 
 /** Extrai telefone + texto + id de um payload de mensagem recebida da Z-API (on-message-received). */
