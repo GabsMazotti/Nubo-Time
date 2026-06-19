@@ -22,13 +22,13 @@ export function formatDataHora(iso: string): string {
   }
 }
 
-/** "17/06 Ã s 14:00" no fuso configurado. */
+/** "17/06 às 14:00" no fuso configurado. */
 export function formatDiaHora(iso: string): string {
   try {
     const d = new Date(iso);
     const dia = new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "2-digit", timeZone: TZ }).format(d);
     const hora = new Intl.DateTimeFormat("pt-BR", { hour: "2-digit", minute: "2-digit", timeZone: TZ }).format(d);
-    return `${dia} Ã s ${hora}`;
+    return `${dia} às ${hora}`;
   } catch {
     return iso;
   }
@@ -36,5 +36,5 @@ export function formatDiaHora(iso: string): string {
 
 export function resumoLead(lead: Record<string, unknown>): string {
   const partes = [lead.role, lead.market, lead.works_with].filter(Boolean);
-  return partes.join(" Â· ") || "â€”";
+  return partes.join(" · ") || "—";
 }
