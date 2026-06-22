@@ -85,9 +85,12 @@
       <div class="row">
         <div><label>Modelo</label>
           <select id="c_model"><option value="gpt">GPT Image (OpenAI)</option><option value="gemini">Gemini (Nano Banana)</option></select></div>
+        <div><label>Qualidade (GPT)</label>
+          <select id="c_quality"><option value="low" selected>Baixa (~US$0,02)</option><option value="medium">Média (~US$0,06)</option><option value="high">Alta (~US$0,17)</option></select></div>
         <div><label>Variações</label>
-          <select id="c_n"><option>1</option><option>2</option><option selected>4</option></select></div>
+          <select id="c_n"><option selected>1</option><option>2</option><option>4</option></select></div>
       </div>
+      <p class="hint">💡 Custo ≈ qualidade × variações. Comece com Baixa + 1 variação pra testar barato.</p>
       <label>Prompt</label>
       <textarea id="c_prompt" placeholder="Ex.: criativo de bônus de boas-vindas para cassino, fundo escuro com fichas douradas, espaço pro logo no topo e um CTA chamativo embaixo"></textarea>
       <label>Formato</label>
@@ -170,7 +173,7 @@ async function criar(){
   if(!prompt){ document.getElementById("c_msg").innerHTML='<span class="err">Escreva um prompt.</span>'; return; }
   const btn=document.getElementById("c_btn"); btn.disabled=true;
   document.getElementById("c_msg").textContent="Gerando... (pode levar alguns segundos)";
-  const d = await post({action:"create", prompt, model:document.getElementById("c_model").value, format:cFormat, n:document.getElementById("c_n").value});
+  const d = await post({action:"create", prompt, model:document.getElementById("c_model").value, quality:document.getElementById("c_quality").value, format:cFormat, n:document.getElementById("c_n").value});
   btn.disabled=false;
   if(d.images && d.images.length){ document.getElementById("c_out").innerHTML = d.images.map(card).join(""); document.getElementById("c_msg").textContent = d.partial?"Algumas variações falharam, mas geramos o que deu.":"Pronto! ✅"; loadGallery(); }
   else { document.getElementById("c_msg").innerHTML='<span class="err">Erro: '+esc(d.error||"falha")+'</span>'; }
