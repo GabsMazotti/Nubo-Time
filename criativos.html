@@ -64,6 +64,23 @@
   <div class="wrap" id="wrap"><div class="inner">
 
     <div class="card">
+      <h3>👤 Clientes / projetos</h3>
+      <label>Cliente selecionado (a logo dele é usada na edição/troca de logo)</label>
+      <select id="client_sel" onchange="selectClient()"><option value="">— Nenhum —</option></select>
+      <div id="client_preview" class="hint" style="margin-top:6px"></div>
+      <div style="border-top:1px solid #222d34;margin:12px 0 0;padding-top:10px">
+        <label>Cadastrar novo cliente</label>
+        <div class="row">
+          <input type="text" id="nc_name" placeholder="Nome do cliente/projeto (ex.: BetX)" />
+          <div class="drop" id="nc_logodrop" style="flex:0 0 180px" onclick="document.getElementById('nc_logo').click()"><div>⬆️ Logo (PNG)</div><div id="nc_logoname" class="hint"></div></div>
+        </div>
+        <input type="file" id="nc_logo" accept="image/*" style="display:none" onchange="pickClientLogo()" />
+        <button class="btn" id="nc_btn" onclick="saveClient()">Salvar cliente</button>
+        <div class="msg" id="nc_msg"></div>
+      </div>
+    </div>
+
+    <div class="card">
       <h3>✨ Criar nova arte</h3>
       <div class="row">
         <div><label>Modelo</label>
@@ -108,6 +125,7 @@ const API = "https://dttqxqnxlmkrclvhtqqx.supabase.co/functions/v1/creatives";
 let KEY = localStorage.getItem("alc_key") || "";
 let cFormat = "1:1"; const FORMATS = [["1:1","1:1 feed"],["9:16","9:16 story"],["4:5","4:5"],["16:9","16:9"]];
 let baseData = "", logoData = "";
+let clients = [], ncLogoData = "";
 
 function saveKey(){const v=document.getElementById("key").value.trim();if(!v)return;KEY=v;localStorage.setItem("alc_key",v);start();}
 function logout(){localStorage.removeItem("alc_key");location.reload();}
@@ -171,6 +189,42 @@ async function loadGallery(){
     document.getElementById("gallery").innerHTML = (d.images||[]).map(i=>card(i.url)).join("") || '<div class="hint">Nenhuma arte ainda.</div>';
   }catch(e){}
 }
+async function loadClients(){
+  try{
+    const r = await fetch(API+"?key="+encodeURIComponent(KEY)+"&clients=1"); const d = await r.json();
+    clients = d.clients || [];
+    const sel = document.getElementById("client_sel");
+    const cur = sel.value;
+    sel.innerHTML = '<option value="">— Nenhum —</option>' + clients.map(c=>'<option value="'+c.id+'">'+esc(c.name)+(c.logo_url?"":" (sem logo)")+'</option>').join("");
+    sel.value = cur;
+  }catch(e){}
+}
+async function selectClient(){
+  const id = document.getElementById("client_sel").value;
+  const c = clients.find(x=>x.id===id);
+  const prev = document.getElementById("client_preview");
+  logoData = "";
+  if(!c){ prev.textContent=""; document.getElementById("e_logoname").textContent=""; document.getElementById("e_logodrop").classList.remove("has"); return; }
+  if(c.logo_url){
+    try{ const r=await fetch(c.logo_url); logoData = await blobToDataUrl(await r.blob());
+      prev.innerHTML = '✓ Usando a logo de <b>'+esc(c.name)+'</b> na edição/troca de logo.';
+      document.getElementById("e_logoname").textContent = "✓ logo de "+c.name; document.getElementById("e_logodrop").classList.add("has");
+    }catch(e){ prev.innerHTML='<span class="err">Não consegui carregar a logo.</span>'; }
+  } else { prev.innerHTML = '<span class="err">Esse cliente está sem logo cadastrada.</span>'; }
+}
+function pickClientLogo(){
+  const f = document.getElementById("nc_logo").files[0]; if(!f) return;
+  const fr = new FileReader(); fr.onload=()=>{ ncLogoData=fr.result; document.getElementById("nc_logodrop").classList.add("has"); document.getElementById("nc_logoname").textContent="✓ "+f.name; }; fr.readAsDataURL(f);
+}
+async function saveClient(){
+  const name = document.getElementById("nc_name").value.trim();
+  if(!name){ document.getElementById("nc_msg").innerHTML='<span class="err">Informe o nome.</span>'; return; }
+  const btn=document.getElementById("nc_btn"); btn.disabled=true; document.getElementById("nc_msg").textContent="Salvando...";
+  const d = await post({action:"add_client", name, logo:ncLogoData||undefined});
+  btn.disabled=false;
+  if(d.ok){ document.getElementById("nc_msg").textContent="Cliente salvo! ✅"; document.getElementById("nc_name").value=""; ncLogoData=""; document.getElementById("nc_logoname").textContent=""; document.getElementById("nc_logodrop").classList.remove("has"); await loadClients(); document.getElementById("client_sel").value=d.client.id; selectClient(); }
+  else { document.getElementById("nc_msg").innerHTML='<span class="err">Erro: '+esc(d.error||"falha")+'</span>'; }
+}
 async function start(){
   try{
     const r = await fetch(API+"?key="+encodeURIComponent(KEY)+"&gallery=1");
@@ -178,7 +232,7 @@ async function start(){
     document.getElementById("login").style.display="none";
     document.getElementById("topbar").style.display="flex";
     document.getElementById("wrap").style.display="block";
-    renderFormats(); loadGallery();
+    renderFormats(); loadClients(); loadGallery();
   }catch(e){ document.getElementById("err").textContent="Senha inválida."; localStorage.removeItem("alc_key"); }
 }
 if(KEY){ start(); }
