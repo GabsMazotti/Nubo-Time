@@ -85,12 +85,13 @@
       <div class="row">
         <div><label>Modelo</label>
           <select id="c_model"><option value="gpt">GPT Image (OpenAI)</option><option value="gemini">Gemini (Nano Banana)</option></select></div>
-        <div><label>Qualidade (GPT)</label>
-          <select id="c_quality"><option value="low" selected>Baixa (~US$0,02)</option><option value="medium">Média (~US$0,06)</option><option value="high">Alta (~US$0,17)</option></select></div>
+        <div><label>Qualidade</label>
+          <select id="c_quality" onchange="updateCost()"><option value="low" selected>Baixa</option><option value="medium">Média</option><option value="high">Alta</option></select></div>
         <div><label>Variações</label>
-          <select id="c_n"><option selected>1</option><option>2</option><option>4</option></select></div>
+          <select id="c_n" onchange="updateCost()"><option selected>1</option><option>2</option><option>4</option></select></div>
       </div>
-      <p class="hint">💡 Custo ≈ qualidade × variações. Comece com Baixa + 1 variação pra testar barato.</p>
+      <p class="hint" id="c_cost" style="font-weight:700;color:#00a884"></p>
+      <p class="hint">💡 Baixa ≈ US$0,02 · Média ≈ US$0,06 · Alta ≈ US$0,17 por imagem. Formatos story/paisagem custam um pouco mais.</p>
       <label>Prompt</label>
       <textarea id="c_prompt" placeholder="Ex.: criativo de bônus de boas-vindas para cassino, fundo escuro com fichas douradas, espaço pro logo no topo e um CTA chamativo embaixo"></textarea>
       <label>Formato</label>
@@ -136,7 +137,16 @@ function esc(s){return String(s==null?"":s).replace(/[&<>"']/g,c=>({"&":"&amp;",
 
 function renderFormats(){
   document.getElementById("c_format").innerHTML = FORMATS.map(f=>
-    '<span class="chip '+(cFormat===f[0]?"on":"")+'" onclick="cFormat=\''+f[0]+'\';renderFormats()">'+f[1]+'</span>').join("");
+    '<span class="chip '+(cFormat===f[0]?"on":"")+'" onclick="cFormat=\''+f[0]+'\';renderFormats();updateCost()">'+f[1]+'</span>').join("");
+}
+function updateCost(){
+  const q = document.getElementById("c_quality").value;
+  const n = parseInt(document.getElementById("c_n").value)||1;
+  const per = {low:0.02, medium:0.06, high:0.17}[q] || 0.02;
+  const mul = cFormat==="1:1" ? 1 : 1.5;
+  const total = per*mul*n;
+  const el = document.getElementById("c_cost");
+  if(el) el.textContent = "💰 Custo estimado: ~US$ "+total.toFixed(2)+"  ("+n+" imagem"+(n>1?"ns":"")+")";
 }
 function card(url){
   return '<div class="gimg"><img src="'+url+'" loading="lazy"/><div class="acts">'
@@ -235,7 +245,7 @@ async function start(){
     document.getElementById("login").style.display="none";
     document.getElementById("topbar").style.display="flex";
     document.getElementById("wrap").style.display="block";
-    renderFormats(); loadClients(); loadGallery();
+    renderFormats(); updateCost(); loadClients(); loadGallery();
   }catch(e){ document.getElementById("err").textContent="Senha inválida."; localStorage.removeItem("alc_key"); }
 }
 if(KEY){ start(); }
