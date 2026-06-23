@@ -125,10 +125,13 @@ Deno.serve(async (req) => {
         return json({ ok: true, debounced: true });
       }
 
-      // Monta o histórico da conversa para o cérebro (já inclui as mensagens recebidas no intervalo)
-      const { data: msgs } = await db.from("aa_messages").select("direction, body")
-        .eq("lead_id", lead.id).order("created_at", { ascending: true }).limit(20);
-      const conversation = (msgs ?? []).map((m) => ({
+      // Monta o histórico da conversa para o cérebro: pega as 20 mensagens MAIS RECENTES
+      // (descending + reverse), NÃO as 20 mais antigas. Antes, com order ASC + limit 20, em
+      // conversas longas (>20 msgs) o cérebro ficava preso no começo, nunca via as mensagens
+      // recentes do lead, e a janela terminava numa msg do assistente -> erro 400 da API.
+      const { data: msgs } = await db.from("aa_messages").select("direction, body, created_at")
+        .eq("lead_id", lead.id).order("created_at", { ascending: false }).limit(20);
+      const conversation = (msgs ?? []).reverse().map((m) => ({
         role: m.direction === "inbound" ? ("user" as const) : ("assistant" as const),
         content: m.body ?? "",
       }));
@@ -164,18 +167,27 @@ Deno.serve(async (req) => {
             : undefined,
         });
       } catch (e) {
-        // Cérebro indisponível mesmo após os retries: NÃO deixa o lead no vácuo.
+        // Cérebro indisponível mesmo após os retries: NÃO deixa o lead no vácuo, MAS não repete
+        // o mesmo fallback (fica com cara de robô). Só manda a mensagem de espera se a ÚLTIMA
+        // mensagem enviada já não tiver sido um fallback; senão, fica quieto e só avisa o Gabriel.
         await addHistory(db, lead.id, "error", `Falha no cérebro: ${(e as Error).message}`);
-        try {
-          await sendText(phone, "Opa! Recebi sua mensagem 🙌 Me dá um minutinho que já te respondo certinho.");
-          await db.from("aa_messages").insert({ lead_id: lead.id, direction: "outbound", body: "Opa! Recebi sua mensagem 🙌 Me dá um minutinho que já te respondo certinho.", meta: { kind: "fallback_brain_fail" } });
-        } catch { /* ignora erro de envio do fallback */ }
+        const { data: lastOut } = await db.from("aa_messages").select("meta")
+          .eq("lead_id", lead.id).eq("direction", "outbound")
+          .order("created_at", { ascending: false }).limit(1).maybeSingle();
+        const jaMandouFallback = (lastOut?.meta as Record<string, unknown> | null)?.kind === "fallback_brain_fail";
+        if (!jaMandouFallback) {
+          const txt = "Opa! Recebi sua mensagem 🙌 Me dá um minutinho que já te respondo certinho.";
+          try {
+            await sendText(phone, txt);
+            await db.from("aa_messages").insert({ lead_id: lead.id, direction: "outbound", body: txt, meta: { kind: "fallback_brain_fail" } });
+          } catch { /* ignora erro de envio do fallback */ }
+        }
         const gabriel = Deno.env.get("GABRIEL_WHATSAPP_NUMBER");
         if (gabriel) {
           try { await sendText(gabriel, `⚠️ A IA falhou ao responder o lead ${lead.name ?? phone} (possível pico de uso). Dá uma olhada na inbox.`); } catch { /* ignora */ }
         }
         await db.from("aa_leads").update({ needs_human: true }).eq("id", lead.id);
-        return json({ ok: true, warning: "falha_brain", fallback_sent: true });
+        return json({ ok: true, warning: "falha_brain", fallback_sent: !jaMandouFallback });
       }
 
       // Mídia força handoff (segurança extra)

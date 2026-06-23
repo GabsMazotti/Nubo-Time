@@ -55,10 +55,18 @@ CONTEXTO DO LEAD (dados do formulário e estado atual):
 ${JSON.stringify(ctx.lead, null, 2)}
 ${ctx.situation ? `\nSITUAÇÃO: ${ctx.situation}` : ""}`;
 
-  // Garante ao menos uma mensagem do "user" (a API exige).
+  // A API exige que a conversa TERMINE com mensagem do "user" (alguns modelos não suportam
+  // "prefill" de assistente). Remove mensagens do assistente que tenham sobrado no fim e
+  // garante ao menos uma mensagem de user.
   const messages = ctx.conversation.length > 0
-    ? ctx.conversation
+    ? [...ctx.conversation]
     : [{ role: "user" as const, content: "(novo lead recebido pelo formulário; ainda não respondeu)" }];
+  while (messages.length > 0 && messages[messages.length - 1].role === "assistant") {
+    messages.pop();
+  }
+  if (messages.length === 0) {
+    messages.push({ role: "user" as const, content: "(continue o atendimento)" });
+  }
 
   const body = JSON.stringify({
     model,
