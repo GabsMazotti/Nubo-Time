@@ -4,6 +4,8 @@ import { admin, addHistory } from "../_shared/db.ts";
 import { sendText } from "../_shared/zapi.ts";
 import { PERSONA_DEFAULTS } from "../_shared/persona.ts";
 import { loadConfig } from "../_shared/config.ts";
+import { STATUS, STATUS_LABEL } from "../_shared/pipeline.ts";
+import { STAGE_DEFAULTS } from "../_shared/stages.ts";
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
@@ -28,6 +30,17 @@ Deno.serve(async (req) => {
     const effective: Record<string, string> = {};
     for (const k of Object.keys(PERSONA_DEFAULTS)) effective[k] = stored[k] ?? PERSONA_DEFAULTS[k];
     return jsonR({ config: effective, defaults: PERSONA_DEFAULTS });
+  }
+
+  // --- Etapas do funil + gatilhos (palavras que marcam a etapa) ---
+  if (req.method === "GET" && url.searchParams.get("stages")) {
+    const { data: stages } = await db.from("aa_stages").select("*").order("sort_order", { ascending: true });
+    const { data: rules } = await db.from("aa_stage_rules").select("*").order("priority", { ascending: false });
+    return jsonR({
+      stages: (stages && stages.length) ? stages : STAGE_DEFAULTS,
+      rules: rules ?? [],
+      status_options: STATUS.map((s) => ({ value: s, label: STATUS_LABEL[s] })),
+    });
   }
 
   // --- Ações de escrita (enviar mensagem manual / pausar-reativar o bot) ---
@@ -58,6 +71,33 @@ Deno.serve(async (req) => {
       }
       return jsonR({ ok: true, saved });
     }
+    if (body.action === "save_stages") {
+      // Salva o catálogo de etapas (upsert por key) e SUBSTITUI o conjunto de gatilhos.
+      const stages = Array.isArray(body.stages) ? body.stages as Record<string, unknown>[] : [];
+      const rules = Array.isArray(body.rules) ? body.rules as Record<string, unknown>[] : [];
+      for (const s of stages) {
+        if (!s || !s.key) continue;
+        await db.from("aa_stages").upsert({
+          key: String(s.key),
+          label: String(s.label ?? s.key),
+          sort_order: Number(s.sort_order ?? 0),
+          status: String(s.status ?? "em_atendimento"),
+          color: s.color ? String(s.color) : null,
+          is_active: s.is_active !== false,
+        }, { onConflict: "key" });
+      }
+      await db.from("aa_stage_rules").delete().gt("id", 0); // troca o conjunto inteiro de gatilhos
+      const toInsert = rules.filter((r) => r && r.stage_key && r.pattern).map((r) => ({
+        stage_key: String(r.stage_key),
+        direction: ["inbound", "outbound", "any"].includes(String(r.direction)) ? String(r.direction) : "inbound",
+        match_type: r.match_type === "regex" ? "regex" : "contains",
+        pattern: String(r.pattern),
+        priority: Number(r.priority ?? 100),
+        is_active: r.is_active !== false,
+      }));
+      if (toInsert.length) await db.from("aa_stage_rules").insert(toInsert);
+      return jsonR({ ok: true, stages: stages.length, rules: toInsert.length });
+    }
     if (body.action === "toggle_bot" && body.lead_id) {
       const paused = !!body.paused;
       await db.from("aa_leads").update({ bot_paused: paused }).eq("id", body.lead_id);
@@ -81,7 +121,7 @@ Deno.serve(async (req) => {
 
   // Lista de conversas / leads (com última mensagem para preview/ordenação e dados p/ o CRM)
   const { data: leads } = await db.from("aa_leads")
-    .select("id,name,phone,status,temperature,needs_human,qualified,budget_raw,budget_min,budget_max,market,role,email,bot_paused,created_at,last_inbound_at,last_outbound_at")
+    .select("id,name,phone,status,stage,temperature,needs_human,qualified,qualified_no_meeting,remarketing,budget_raw,budget_min,budget_max,market,role,email,bot_paused,created_at,last_inbound_at,last_outbound_at")
     .limit(500);
   const { data: recent } = await db.from("aa_messages")
     .select("lead_id,direction,body,created_at").order("created_at", { ascending: false }).limit(1200);
@@ -99,8 +139,9 @@ Deno.serve(async (req) => {
     const lm = lastByLead.get(l.id);
     const activity = lm?.created_at ?? l.last_inbound_at ?? l.last_outbound_at ?? l.created_at;
     return {
-      id: l.id, name: l.name, phone: l.phone, status: l.status, temperature: l.temperature,
-      needs_human: l.needs_human, qualified: l.qualified, budget_raw: l.budget_raw,
+      id: l.id, name: l.name, phone: l.phone, status: l.status, stage: l.stage, temperature: l.temperature,
+      needs_human: l.needs_human, qualified: l.qualified, qualified_no_meeting: l.qualified_no_meeting, remarketing: l.remarketing,
+      budget_raw: l.budget_raw,
       budget_min: l.budget_min, budget_max: l.budget_max, market: l.market, role: l.role, email: l.email,
       bot_paused: l.bot_paused, created_at: l.created_at,
       appt: apptByLead.get(l.id) ?? null,

@@ -66,6 +66,8 @@
 const API = "https://dttqxqnxlmkrclvhtqqx.supabase.co/functions/v1/inbox";
 let KEY = localStorage.getItem("alc_key") || "";
 let DEFAULTS = {};
+let STAGES = [];        // catálogo de etapas do funil
+let STATUS_OPTS = [];   // opções de status do CRM (para o dropdown de cada etapa)
 
 // Campos editáveis (mesmas chaves do backend). Ordem e textos de ajuda só para o painel.
 const SECTIONS = [
@@ -113,7 +115,22 @@ async function load(){
   const d = await r.json();
   DEFAULTS = d.defaults || {};
   const cfg = d.config || {};
-  let html = '<div class="intro">Edite o que o atendente <b>fala e como pensa</b>. As alterações valem <b>na hora</b>, sem precisar publicar nada. As regras de segurança do atendente (identidade, formato em blocos, etapas do funil) são fixas e protegidas.</div>';
+
+  // Etapas do funil (catálogo + gatilhos)
+  let stagesHtml = "";
+  try{
+    const rs = await fetch(API+"?key="+encodeURIComponent(KEY)+"&stages=1");
+    const ds = await rs.json();
+    STAGES = ds.stages || [];
+    STATUS_OPTS = ds.status_options || [];
+    stagesHtml = buildStagesHtml(STAGES, ds.rules || []);
+  }catch(e){ stagesHtml = '<div class="intro">Não foi possível carregar as etapas (rode a migration 0009).</div>'; }
+
+  let html = '<div class="intro">Edite o que o atendente <b>fala e como pensa</b>, e as <b>etapas do funil</b>. As alterações valem <b>na hora</b>, sem precisar publicar nada. As regras de segurança do atendente (identidade, formato em blocos) são fixas e protegidas.</div>';
+  html += '<div class="sechead">Etapas do funil (do primeiro contato à reunião)</div>';
+  html += '<div class="intro" style="margin:-2px 4px 10px">Cada etapa tem um <b>status no CRM</b> e <b>palavras-gatilho</b>: quando alguma palavra aparece na conversa, o lead avança de etapa e o status é atualizado. Uma palavra/frase por linha — comece a linha com <b>re:</b> para usar expressão regular.</div>';
+  html += stagesHtml;
+
   for(const sec of SECTIONS){
     html += '<div class="sechead">'+sec.title+'</div>';
     if(sec.note) html += '<div class="intro" style="margin:-2px 4px 10px">'+esc(sec.note)+'</div>';
@@ -126,6 +143,56 @@ async function load(){
   document.getElementById("inner").innerHTML = html;
 }
 
+// Mapeia direção interna <-> rótulo amigável
+const DIRS = [["inbound","mensagem do lead"],["outbound","mensagem do atendente"],["any","qualquer mensagem"]];
+
+function buildStagesHtml(stages, rules){
+  // Agrupa gatilhos por etapa (uma palavra por linha; regex marcada com prefixo "re:")
+  const byStage = {};
+  for(const r of rules){
+    (byStage[r.stage_key] = byStage[r.stage_key] || {dir:"inbound", lines:[]});
+    byStage[r.stage_key].dir = r.direction || "inbound";
+    byStage[r.stage_key].lines.push((r.match_type==="regex"?"re:":"")+r.pattern);
+  }
+  const statusOpt = (sel)=> STATUS_OPTS.map(o=>'<option value="'+esc(o.value)+'"'+(o.value===sel?' selected':'')+'>'+esc(o.label)+'</option>').join("");
+  const dirOpt = (sel)=> DIRS.map(d=>'<option value="'+d[0]+'"'+(d[0]===sel?' selected':'')+'>'+d[1]+'</option>').join("");
+  let h = "";
+  for(const s of stages){
+    const g = byStage[s.key] || {dir:"inbound", lines:[]};
+    h += '<div class="field" data-stage="'+esc(s.key)+'">'
+      + '<h3><input class="stg-label" value="'+esc(s.label)+'" style="background:#0b141a;color:#e9edef;border:1px solid #2a3942;border-radius:6px;padding:4px 8px;font:inherit;font-weight:700;width:60%"></h3>'
+      + '<div class="hint" style="display:flex;gap:14px;flex-wrap:wrap;align-items:center;margin-top:6px">'
+      +   '<span>Status no CRM: <select class="stg-status" style="background:#0b141a;color:#e9edef;border:1px solid #2a3942;border-radius:6px;padding:3px 6px">'+statusOpt(s.status)+'</select></span>'
+      +   '<span>Detectar em: <select class="stg-dir" style="background:#0b141a;color:#e9edef;border:1px solid #2a3942;border-radius:6px;padding:3px 6px">'+dirOpt(g.dir)+'</select></span>'
+      +   '<label style="display:flex;gap:5px;align-items:center"><input type="checkbox" class="stg-active"'+(s.is_active!==false?' checked':'')+'> ativa</label>'
+      + '</div>'
+      + '<textarea class="stg-pat" rows="3" placeholder="uma palavra ou frase por linha (ex.: confirmo)\nre:expressão regular opcional">'+esc(g.lines.join("\n"))+'</textarea>'
+      + '</div>';
+  }
+  return h;
+}
+
+// Lê o editor de etapas de volta para { stages, rules }
+function collectStages(){
+  const stages = [], rules = [];
+  document.querySelectorAll('[data-stage]').forEach((el, idx)=>{
+    const key = el.getAttribute("data-stage");
+    const orig = STAGES.find(s=>s.key===key) || {sort_order:(idx+1)*10};
+    const label = el.querySelector(".stg-label").value.trim() || key;
+    const status = el.querySelector(".stg-status").value;
+    const dir = el.querySelector(".stg-dir").value;
+    const active = el.querySelector(".stg-active").checked;
+    stages.push({ key, label, status, color: orig.color || null, sort_order: orig.sort_order ?? (idx+1)*10, is_active: active });
+    const lines = el.querySelector(".stg-pat").value.split("\n").map(s=>s.trim()).filter(Boolean);
+    for(const line of lines){
+      const isRe = line.toLowerCase().startsWith("re:");
+      rules.push({ stage_key:key, direction:dir, match_type:isRe?"regex":"contains",
+        pattern: isRe? line.slice(3).trim() : line, priority: (orig.sort_order ?? (idx+1)*10)+100, is_active:true });
+    }
+  });
+  return { stages, rules };
+}
+
 function resetField(k){ const ta=document.getElementById("f_"+k); if(ta){ ta.value = DEFAULTS[k]||""; flash("Campo restaurado ao padrão (lembre de salvar)."); } }
 function flash(m){ document.getElementById("savemsg").textContent=m; }
 
@@ -136,7 +203,15 @@ async function saveAll(){
   try{
     const r = await fetch(API+"?key="+encodeURIComponent(KEY),{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"save_config",config})});
     const d = await r.json();
-    if(d.ok){ flash("✅ Salvo! Já está valendo no atendimento."); } else { flash("❌ Erro ao salvar: "+(d.error||"")); }
+    if(!d.ok){ flash("❌ Erro ao salvar config: "+(d.error||"")); btn.disabled=false; return; }
+    // Salva também as etapas do funil + gatilhos (se o editor estiver carregado)
+    if(document.querySelector("[data-stage]")){
+      const payload = collectStages();
+      const rs = await fetch(API+"?key="+encodeURIComponent(KEY),{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"save_stages",stages:payload.stages,rules:payload.rules})});
+      const ds = await rs.json();
+      if(!ds.ok){ flash("⚠️ Config salva, mas falhou nas etapas: "+(ds.error||"")); btn.disabled=false; return; }
+    }
+    flash("✅ Salvo! Já está valendo no atendimento.");
   }catch(e){ flash("❌ Falha de conexão."); }
   btn.disabled=false;
 }

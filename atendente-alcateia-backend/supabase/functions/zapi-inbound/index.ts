@@ -5,6 +5,7 @@ import { json } from "../_shared/cors.ts";
 import { parseInbound, sendBlocks, sendText } from "../_shared/zapi.ts";
 import { callBrain } from "../_shared/anthropic.ts";
 import { isValidStatus, REMINDER_TYPES } from "../_shared/pipeline.ts";
+import { evaluateStage, loadStageRules, loadStages, syncRemarketing } from "../_shared/stages.ts";
 import { QUALIFY_FLOOR } from "../_shared/qualification.ts";
 import { buildPersonas, buildTemplates, CALENDLY_URL, TEMPLATES } from "../_shared/persona.ts";
 import { loadConfig } from "../_shared/config.ts";
@@ -192,19 +193,54 @@ Deno.serve(async (req) => {
       const qualified = desqualificado
         ? false
         : (decision.qualified || lead.qualified === true || Number(lead.budget_min ?? 0) >= QUALIFY_FLOOR);
+      const qualifiedAt = qualified ? (lead.qualified_at ?? new Date().toISOString()) : lead.qualified_at ?? null;
 
-      // Aplica status/decisões
+      // ── Etapa do funil (gatilho híbrido: palavras configuráveis + IA de reforço) ──
+      // Uma palavra-gatilho que case na conversa marca a etapa; na faixa normal do funil
+      // (até a agenda) ela também atualiza o status do CRM. Status de reunião/handoff ficam
+      // a cargo da lógica viva acima (não são sobrescritos por palavra).
+      const stages = await loadStages(db);
+      const rules = await loadStageRules(db);
+      const hasActiveAppt = agendamento.tem_reuniao === true && newStatus !== "reuniao_cancelada";
+      const stageEval = evaluateStage({
+        stages, rules,
+        currentStage: lead.stage,
+        inboundText: inb.text,
+        outboundText: reply,
+        aiStatus: newStatus,
+        currentStatus: newStatus,
+        hasActiveAppt,
+      });
+      const finalStatus = stageEval.status ?? newStatus;
+
+      // Aplica status/decisões (+ etapa, se mudou)
       await db.from("aa_leads").update({
-        status: newStatus,
+        status: finalStatus,
         temperature: decision.temperature,
         qualified,
+        qualified_at: qualifiedAt,
         needs_human: decision.needs_human || lead.needs_human,
         opted_out: newStatus === "opt_out" ? true : lead.opted_out,
         last_outbound_at: reply.trim() ? new Date().toISOString() : lead.last_outbound_at,
+        ...(stageEval.changed && stageEval.stage ? { stage: stageEval.stage, stage_changed_at: new Date().toISOString() } : {}),
       }).eq("id", lead.id);
+      if (stageEval.changed && stageEval.stage) {
+        await db.from("aa_stage_history").insert({
+          lead_id: lead.id, from_stage: lead.stage ?? null, to_stage: stageEval.stage,
+          reason: stageEval.reason, rule_id: stageEval.ruleId ?? null,
+        });
+      }
       await addHistory(db, lead.id, "agent_decision", decision.history_note ?? reply, {
-        status: newStatus, temperature: decision.temperature, qualified: decision.qualified,
+        status: finalStatus, stage: stageEval.stage, stage_reason: stageEval.reason,
+        temperature: decision.temperature, qualified: decision.qualified,
         needs_human: decision.needs_human, send_calendly: decision.send_calendly, sent_ok: sentOk,
+      });
+
+      // Remarketing: mantém a fila de qualificados-sem-reunião e a coluna remarketing em dia.
+      await syncRemarketing(db, { id: lead.id, qualified_at: qualifiedAt }, {
+        stageKey: stageEval.stage,
+        qualified,
+        hasActiveAppt,
       });
 
       // Sincroniza o agendamento conforme o status decidido

@@ -183,16 +183,19 @@ Deno.serve(async (req) => {
     const quando = agendamento.quando_iso ? formatDiaHora(String(agendamento.quando_iso)) : "";
     firstMessage = T.confirmacaoGabriel(name, quando);
     await db.from("aa_leads").update({
-      status: "call_agendada", temperature: "quente",
+      status: "call_agendada", temperature: "quente", stage: "reuniao_marcada", stage_changed_at: new Date().toISOString(),
       first_contact_sent_at: new Date().toISOString(), last_outbound_at: new Date().toISOString(),
     }).eq("id", lead.id);
   } else if ((range.min ?? 0) >= OUTREACH_FLOOR) {
     // Tem orçamento mínimo (>= R$5k) e NÃO agendou -> mensagem PADRÃO de abordagem do Gabriel (sem cérebro).
     // qualified=true só a partir de R$10k; faixa 5–10k entra como "morno" (confirma na conversa).
     firstMessage = T.gabrielQualificado(name);
+    const jaQualificado = (range.min ?? 0) >= QUALIFY_FLOOR;
     await db.from("aa_leads").update({
       status: "contato_realizado", temperature: initialTemperature(range),
-      qualified: (range.min ?? 0) >= QUALIFY_FLOOR,
+      qualified: jaQualificado,
+      qualified_at: jaQualificado ? new Date().toISOString() : null,
+      stage: "primeiro_contato", stage_changed_at: new Date().toISOString(),
       first_contact_sent_at: new Date().toISOString(), last_outbound_at: new Date().toISOString(),
     }).eq("id", lead.id);
   } else {
@@ -209,6 +212,7 @@ Deno.serve(async (req) => {
       firstMessage = decision.reply;
       await db.from("aa_leads").update({
         status: "contato_realizado", temperature: decision.temperature,
+        stage: "primeiro_contato", stage_changed_at: new Date().toISOString(),
         first_contact_sent_at: new Date().toISOString(), last_outbound_at: new Date().toISOString(),
       }).eq("id", lead.id);
     } catch (e) {

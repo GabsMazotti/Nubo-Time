@@ -4,6 +4,7 @@ import { admin, addHistory } from "../_shared/db.ts";
 import { json } from "../_shared/cors.ts";
 import { cancelCalendlyEvent, parseCalendlyWebhook } from "../_shared/calendly.ts";
 import { REMINDER_TYPES } from "../_shared/pipeline.ts";
+import { syncRemarketing } from "../_shared/stages.ts";
 
 async function findLead(db: ReturnType<typeof admin>, ev: { phone?: string; email?: string; name?: string }) {
   if (ev.phone) {
@@ -51,7 +52,18 @@ Deno.serve(async (req) => {
     await db.from("aa_scheduled_tasks").update({ status: "canceled" })
       .eq("lead_id", lead.id).eq("status", "pending")
       .in("type", REMINDER_TYPES);
-    await db.from("aa_leads").update({ status: "reuniao_cancelada" }).eq("id", lead.id);
+    // Cancelou a reunião: se já era qualificado, cai na etapa "qualificado sem agendar" (vira remarketing).
+    const cancelStage = lead.qualified ? "qualificado_sem_agendar" : (lead.stage ?? null);
+    await db.from("aa_leads").update({
+      status: "reuniao_cancelada",
+      ...(lead.qualified ? { stage: "qualificado_sem_agendar", stage_changed_at: new Date().toISOString() } : {}),
+    }).eq("id", lead.id);
+    if (lead.qualified) {
+      await db.from("aa_stage_history").insert({ lead_id: lead.id, from_stage: lead.stage ?? null, to_stage: "qualificado_sem_agendar", reason: "system" });
+    }
+    await syncRemarketing(db, { id: lead.id, qualified_at: lead.qualified_at }, {
+      stageKey: cancelStage, qualified: !!lead.qualified, hasActiveAppt: false, reason: "reuniao_cancelada",
+    });
     await addHistory(db, lead.id, "calendly", "Reunião cancelada no Calendly.", { ev });
     return json({ ok: true, lead_id: lead.id, action: "canceled" });
   }
@@ -86,7 +98,17 @@ Deno.serve(async (req) => {
     calendly_event_id: ev.eventId ?? null,
   }, { onConflict: "calendly_event_id" }).select().single();
 
-  await db.from("aa_leads").update({ status: "call_agendada", temperature: "quente" }).eq("id", lead.id);
+  await db.from("aa_leads").update({
+    status: "call_agendada", temperature: "quente",
+    stage: "reuniao_marcada", stage_changed_at: new Date().toISOString(),
+  }).eq("id", lead.id);
+  if (lead.stage !== "reuniao_marcada") {
+    await db.from("aa_stage_history").insert({ lead_id: lead.id, from_stage: lead.stage ?? null, to_stage: "reuniao_marcada", reason: "system" });
+  }
+  // Marcou reunião -> sai da fila de remarketing (recuperado) e zera a coluna remarketing.
+  await syncRemarketing(db, { id: lead.id, qualified_at: lead.qualified_at }, {
+    stageKey: "reuniao_marcada", qualified: !!lead.qualified, hasActiveAppt: true,
+  });
   await addHistory(db, lead.id, "calendly", `Call ${ev.kind === "rescheduled" ? "remarcada" : "agendada"} para ${ev.scheduledAt}.`, { ev });
 
   // Agenda os lembretes (3h / 1h / 10min antes) + checagem de no-show (5min)

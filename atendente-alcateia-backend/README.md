@@ -54,6 +54,24 @@ Lead agenda no Calendly
 | `functions/zapi-inbound/` | Respostas do lead (WhatsApp) |
 | `functions/calendly-webhook/` | Eventos de agendamento (Calendly) |
 | `functions/scheduler-tick/` | Worker do cron (lembretes/follow-ups) |
+| `migrations/0009_funnel_stages.sql` | **Funil de etapas** + remarketing: `aa_stages` (catálogo das 8 etapas), `aa_stage_rules` (palavras-gatilho), `aa_stage_history` (auditoria), `aa_remarketing` (qualificados sem reunião) + colunas `stage`/`remarketing`/`qualified_no_meeting` em `aa_leads` |
+| `functions/_shared/stages.ts` | Motor do funil: carrega etapas/gatilhos, decide a etapa (palavras + IA de reforço, com guarda anti-regressão) e mantém a fila de remarketing |
+
+### Funil de etapas (do primeiro contato ao agendamento)
+
+8 etapas padrão, **editáveis no painel** (aba Config → "Etapas do funil"):
+
+1. Primeiro contato → 2. Em conversa → 3. Qualificado → 4. Agenda enviada →
+5. Qualificado sem agendar → 6. Em remarketing → 7. Reunião marcada → 8. Reunião confirmada.
+
+**Como a etapa avança (gatilho híbrido):**
+- **Palavras/frases configuráveis** (prioridade): você define, por etapa, as palavras que, ao aparecerem na conversa (mensagem do lead, do atendente ou ambas), marcam a etapa. Na faixa normal do funil (até a agenda), isso **atualiza o status do lead no CRM**.
+- **IA de reforço**: se nenhuma palavra casar, o status decidido pelo cérebro vira etapa.
+- **Guardas**: a etapa não regride por engano (exceto para "Em remarketing"/"Qualificado sem agendar"), e as etapas de reunião só são atingidas com **agendamento real** (não por palavra solta). Status de reunião/confirmação continuam governados pela lógica viva (Calendly + confirmação).
+
+**Remarketing:** quando um lead **qualificado** fica sem reunião ativa, ele entra na tabela `aa_remarketing` (`qualified_no_meeting`); se cai em "Em remarketing", a **coluna `remarketing`** do lead fica `true`. Ao marcar/remarcar uma reunião, o lead é **recuperado** e sai da fila. O CRM mostra a etapa e os marcadores 🔁 remarketing / ⏳ sem reunião.
+
+> Após aplicar a migration, redeploye as funções: `supabase functions deploy zapi-inbound respondi-webhook calendly-webhook inbox`.
 
 ## Variáveis de ambiente
 
