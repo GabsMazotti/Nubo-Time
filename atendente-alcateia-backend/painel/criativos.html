@@ -1,0 +1,269 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Criativos · Alcateia</title>
+<style>
+  :root{color-scheme:dark} *{box-sizing:border-box}
+  body{margin:0;height:100vh;background:#0b141a;color:#e9edef;font:14px/1.45 system-ui,Segoe UI,Roboto,sans-serif;overflow:hidden}
+  .login{height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px}
+  .login input{padding:10px 14px;border-radius:8px;border:1px solid #2a3942;background:#111b21;color:#e9edef;width:280px}
+  .login button{padding:10px 18px;border-radius:8px;border:0;background:#00a884;color:#fff;font-weight:700;cursor:pointer}
+  .topbar{display:none;align-items:center;gap:18px;height:46px;padding:0 16px;background:#202c33;border-bottom:1px solid #222d34}
+  .topbar .brand{font-weight:800}
+  .topbar nav{display:flex;gap:6px;flex-wrap:wrap}
+  .topbar .tab{padding:6px 12px;border-radius:8px;color:#cbd5e1;text-decoration:none;font-weight:700;font-size:13px}
+  .topbar .tab.on{background:#00a884;color:#fff} .topbar .tab:hover{background:#2a3942}
+  .topbar .right{margin-left:auto;color:#8696a0;font-size:12px} .topbar .right a{color:#8696a0;cursor:pointer}
+  .wrap{display:none;height:calc(100vh - 46px);overflow-y:auto}
+  .inner{max-width:900px;margin:0 auto;padding:18px 16px 80px}
+  .card{background:#111b21;border:1px solid #222d34;border-radius:10px;padding:14px;margin-bottom:14px}
+  .card h3{margin:0 0 10px;font-size:15px}
+  label{font-size:12px;color:#8696a0;display:block;margin:8px 0 4px}
+  textarea,input[type=text],select{width:100%;background:#0b141a;color:#e9edef;border:1px solid #2a3942;border-radius:8px;padding:9px 10px;font:inherit}
+  textarea{height:72px;resize:vertical}
+  .row{display:flex;gap:10px;flex-wrap:wrap}.row>*{flex:1;min-width:140px}
+  .chips{display:flex;gap:6px;flex-wrap:wrap;margin-top:4px}
+  .chip{padding:5px 12px;border-radius:999px;font-size:12px;cursor:pointer;background:#202c33;color:#cbd5e1;border:1px solid #2a3942}
+  .chip.on{background:#00a884;color:#fff;border-color:#00a884}
+  .btn{margin-top:12px;padding:10px 18px;border-radius:8px;border:0;background:#00a884;color:#fff;font-weight:700;cursor:pointer}
+  .btn:disabled{opacity:.5;cursor:default}
+  .drop{flex:1;min-width:150px;border:1px dashed #2a3942;border-radius:8px;padding:14px;text-align:center;color:#8696a0;font-size:12px;cursor:pointer}
+  .drop.has{border-color:#00a884;color:#e9edef}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px;margin-top:10px}
+  .gimg{background:#0b141a;border:1px solid #222d34;border-radius:8px;overflow:hidden}
+  .gimg img{width:100%;display:block;aspect-ratio:1;object-fit:cover}
+  .gimg .acts{display:flex;gap:6px;padding:6px}
+  .gimg a,.gimg button{flex:1;text-align:center;font-size:12px;padding:5px;border-radius:6px;border:1px solid #2a3942;background:#202c33;color:#e9edef;text-decoration:none;cursor:pointer}
+  .msg{font-size:13px;color:#8696a0;margin-top:8px;min-height:18px}
+  .err{color:#f87171}
+  .hint{font-size:12px;color:#8696a0;margin:2px 0 0}
+</style>
+</head>
+<body>
+  <div class="login" id="login">
+    <h2>🐺 Criativos Alcateia</h2>
+    <div style="color:#8696a0">Digite a senha de acesso</div>
+    <input id="key" type="password" placeholder="senha do painel" onkeydown="if(event.key==='Enter')saveKey()" />
+    <button onclick="saveKey()">Entrar</button>
+    <div id="err" style="color:#ef4444"></div>
+  </div>
+
+  <div class="topbar" id="topbar">
+    <span class="brand">🐺 Alcateia</span>
+    <nav>
+      <a class="tab" href="./">💬 Inbox</a>
+      <a class="tab" href="crm.html">📊 CRM</a>
+      <a class="tab" href="config.html">⚙️ Config</a>
+      <a class="tab on" href="criativos.html">🎨 Criativos</a>
+    </nav>
+    <span class="right"><a onclick="logout()">sair</a></span>
+  </div>
+
+  <div class="wrap" id="wrap"><div class="inner">
+
+    <div class="card">
+      <h3>👤 Clientes / projetos</h3>
+      <label>Cliente selecionado (a logo dele é usada na edição/troca de logo)</label>
+      <select id="client_sel" onchange="selectClient()"><option value="">— Nenhum —</option></select>
+      <div id="client_preview" class="hint" style="margin-top:6px"></div>
+      <div style="border-top:1px solid #222d34;margin:12px 0 0;padding-top:10px">
+        <label>Cadastrar novo cliente</label>
+        <div class="row">
+          <input type="text" id="nc_name" placeholder="Nome do cliente/projeto (ex.: BetX)" />
+          <div class="drop" id="nc_logodrop" style="flex:0 0 180px" onclick="document.getElementById('nc_logo').click()"><div>⬆️ Logo (PNG)</div><div id="nc_logoname" class="hint"></div></div>
+        </div>
+        <input type="file" id="nc_logo" accept="image/*" style="display:none" onchange="pickClientLogo()" />
+        <button class="btn" id="nc_btn" onclick="saveClient()">Salvar cliente</button>
+        <div class="msg" id="nc_msg"></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>✨ Criar nova arte</h3>
+      <div class="row">
+        <div><label>Modelo</label>
+          <select id="c_model"><option value="gpt">GPT Image (OpenAI)</option><option value="gemini">Gemini (Nano Banana)</option></select></div>
+        <div><label>Qualidade</label>
+          <select id="c_quality" onchange="updateCost()"><option value="low" selected>Baixa</option><option value="medium">Média</option><option value="high">Alta</option></select></div>
+        <div><label>Variações</label>
+          <select id="c_n" onchange="updateCost()"><option selected>1</option><option>2</option><option>4</option></select></div>
+      </div>
+      <p class="hint" id="c_cost" style="font-weight:700;color:#00a884"></p>
+      <p class="hint">💡 Baixa ≈ US$0,02 · Média ≈ US$0,06 · Alta ≈ US$0,17 por imagem. Formatos story/paisagem custam um pouco mais.</p>
+      <label>Prompt</label>
+      <textarea id="c_prompt" placeholder="Ex.: criativo de bônus de boas-vindas para cassino, fundo escuro com fichas douradas, espaço pro logo no topo e um CTA chamativo embaixo"></textarea>
+      <label>Formato</label>
+      <div class="chips" id="c_format"></div>
+      <label style="margin-top:10px"><input type="checkbox" id="c_uselogo" checked style="width:auto;vertical-align:middle"/> Estampar a logo do cliente selecionado</label>
+      <div class="row"><div><label>Posição da logo</label>
+        <select id="c_logopos">
+          <option value="top-right">canto superior direito</option>
+          <option value="top-left">canto superior esquerdo</option>
+          <option value="top-center">topo (centro)</option>
+          <option value="bottom-right">canto inferior direito</option>
+          <option value="bottom-left">canto inferior esquerdo</option>
+          <option value="bottom-center">rodapé (centro)</option>
+        </select></div></div>
+      <p class="hint" id="c_logohint">Selecione um cliente no topo pra estampar a logo dele.</p>
+      <button class="btn" id="c_btn" onclick="criar()">Gerar artes</button>
+      <div class="msg" id="c_msg"></div>
+      <div class="grid" id="c_out"></div>
+    </div>
+
+    <div class="card">
+      <h3>🔁 Editar / trocar logo</h3>
+      <p class="hint">Sobe um criativo existente e troca o logo (ou peça uma alteração), mantendo o resto. Usa o Gemini.</p>
+      <div class="row" style="margin-top:8px">
+        <div class="drop" id="e_basedrop" onclick="document.getElementById('e_base').click()"><div>📷 Criativo base</div><div id="e_basename" class="hint"></div></div>
+        <div class="drop" id="e_logodrop" onclick="document.getElementById('e_logo').click()"><div>⬆️ Novo logo (PNG, opcional)</div><div id="e_logoname" class="hint"></div></div>
+      </div>
+      <input type="file" id="e_base" accept="image/*" style="display:none" onchange="pick('base')" />
+      <input type="file" id="e_logo" accept="image/*" style="display:none" onchange="pick('logo')" />
+      <label>Instrução</label>
+      <input type="text" id="e_inst" placeholder="Ex.: troque o logo pelo enviado, mantendo cores e layout" />
+      <button class="btn" id="e_btn" onclick="editar()">Gerar edição</button>
+      <div class="msg" id="e_msg"></div>
+      <div class="grid" id="e_out"></div>
+    </div>
+
+    <div class="card">
+      <h3>🗂️ Galeria</h3>
+      <div class="grid" id="gallery"></div>
+    </div>
+
+  </div></div>
+
+<script>
+const API = "https://dttqxqnxlmkrclvhtqqx.supabase.co/functions/v1/creatives";
+let KEY = localStorage.getItem("alc_key") || "";
+let cFormat = "1:1"; const FORMATS = [["1:1","1:1 feed"],["9:16","9:16 story"],["4:5","4:5"],["16:9","16:9"]];
+let baseData = "", logoData = "";
+let clients = [], ncLogoData = "";
+
+function saveKey(){const v=document.getElementById("key").value.trim();if(!v)return;KEY=v;localStorage.setItem("alc_key",v);start();}
+function logout(){localStorage.removeItem("alc_key");location.reload();}
+function esc(s){return String(s==null?"":s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));}
+
+function renderFormats(){
+  document.getElementById("c_format").innerHTML = FORMATS.map(f=>
+    '<span class="chip '+(cFormat===f[0]?"on":"")+'" onclick="cFormat=\''+f[0]+'\';renderFormats();updateCost()">'+f[1]+'</span>').join("");
+}
+function updateCost(){
+  const q = document.getElementById("c_quality").value;
+  const n = parseInt(document.getElementById("c_n").value)||1;
+  const per = {low:0.02, medium:0.06, high:0.17}[q] || 0.02;
+  const mul = cFormat==="1:1" ? 1 : 1.5;
+  const total = per*mul*n;
+  const el = document.getElementById("c_cost");
+  if(el) el.textContent = "💰 Custo estimado: ~US$ "+total.toFixed(2)+"  ("+n+" imagem"+(n>1?"ns":"")+")";
+}
+function card(url){
+  return '<div class="gimg"><img src="'+url+'" loading="lazy"/><div class="acts">'
+    +'<a href="'+url+'" target="_blank" download>baixar</a>'
+    +'<button onclick="usarComoBase(\''+url+'\')">editar</button></div></div>';
+}
+async function usarComoBase(url){
+  // carrega a imagem da galeria como base pra edição
+  const r = await fetch(url); const b = await r.blob();
+  baseData = await blobToDataUrl(b);
+  document.getElementById("e_basedrop").classList.add("has");
+  document.getElementById("e_basename").textContent = "✓ carregado da galeria";
+  document.getElementById("e_basedrop").scrollIntoView({behavior:"smooth"});
+}
+function blobToDataUrl(b){return new Promise(res=>{const fr=new FileReader();fr.onload=()=>res(fr.result);fr.readAsDataURL(b);});}
+
+function pick(which){
+  const inp = document.getElementById(which==="base"?"e_base":"e_logo");
+  const f = inp.files[0]; if(!f) return;
+  const fr = new FileReader();
+  fr.onload = ()=>{
+    if(which==="base"){ baseData=fr.result; document.getElementById("e_basedrop").classList.add("has"); document.getElementById("e_basename").textContent="✓ "+f.name; }
+    else { logoData=fr.result; document.getElementById("e_logodrop").classList.add("has"); document.getElementById("e_logoname").textContent="✓ "+f.name; }
+  };
+  fr.readAsDataURL(f);
+}
+
+async function post(payload){
+  const r = await fetch(API+"?key="+encodeURIComponent(KEY),{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)});
+  return r.json();
+}
+async function criar(){
+  const prompt = document.getElementById("c_prompt").value.trim();
+  if(!prompt){ document.getElementById("c_msg").innerHTML='<span class="err">Escreva um prompt.</span>'; return; }
+  const btn=document.getElementById("c_btn"); btn.disabled=true;
+  document.getElementById("c_msg").textContent="Gerando... (pode levar alguns segundos)";
+  const payload = {action:"create", prompt, model:document.getElementById("c_model").value, quality:document.getElementById("c_quality").value, format:cFormat, n:document.getElementById("c_n").value};
+  if(document.getElementById("c_uselogo").checked && logoData){ payload.overlay_logo = logoData; payload.logo_pos = document.getElementById("c_logopos").value; }
+  const d = await post(payload);
+  btn.disabled=false;
+  if(d.images && d.images.length){ document.getElementById("c_out").innerHTML = d.images.map(card).join(""); document.getElementById("c_msg").textContent = d.partial?"Algumas variações falharam, mas geramos o que deu.":"Pronto! ✅"; loadGallery(); }
+  else { document.getElementById("c_msg").innerHTML='<span class="err">Erro: '+esc(d.error||"falha")+'</span>'; }
+}
+async function editar(){
+  if(!baseData){ document.getElementById("e_msg").innerHTML='<span class="err">Suba o criativo base.</span>'; return; }
+  const btn=document.getElementById("e_btn"); btn.disabled=true;
+  document.getElementById("e_msg").textContent="Editando...";
+  const d = await post({action:"edit", base:baseData, logo:logoData||undefined, instruction:document.getElementById("e_inst").value, format:cFormat});
+  btn.disabled=false;
+  if(d.images && d.images.length){ document.getElementById("e_out").innerHTML = d.images.map(card).join(""); document.getElementById("e_msg").textContent="Pronto! ✅"; loadGallery(); }
+  else { document.getElementById("e_msg").innerHTML='<span class="err">Erro: '+esc(d.error||"falha")+'</span>'; }
+}
+async function loadGallery(){
+  try{ const r = await fetch(API+"?key="+encodeURIComponent(KEY)+"&gallery=1"); const d = await r.json();
+    document.getElementById("gallery").innerHTML = (d.images||[]).map(i=>card(i.url)).join("") || '<div class="hint">Nenhuma arte ainda.</div>';
+  }catch(e){}
+}
+async function loadClients(){
+  try{
+    const r = await fetch(API+"?key="+encodeURIComponent(KEY)+"&clients=1"); const d = await r.json();
+    clients = d.clients || [];
+    const sel = document.getElementById("client_sel");
+    const cur = sel.value;
+    sel.innerHTML = '<option value="">— Nenhum —</option>' + clients.map(c=>'<option value="'+c.id+'">'+esc(c.name)+(c.logo_url?"":" (sem logo)")+'</option>').join("");
+    sel.value = cur;
+  }catch(e){}
+}
+async function selectClient(){
+  const id = document.getElementById("client_sel").value;
+  const c = clients.find(x=>x.id===id);
+  const prev = document.getElementById("client_preview");
+  logoData = "";
+  const hint = document.getElementById("c_logohint");
+  if(!c){ prev.textContent=""; document.getElementById("e_logoname").textContent=""; document.getElementById("e_logodrop").classList.remove("has"); if(hint) hint.textContent="Selecione um cliente no topo pra estampar a logo dele."; return; }
+  if(c.logo_url){
+    try{ const r=await fetch(c.logo_url); logoData = await blobToDataUrl(await r.blob());
+      prev.innerHTML = '✓ Usando a logo de <b>'+esc(c.name)+'</b> na edição/troca de logo.';
+      if(hint) hint.innerHTML = '✓ A logo de <b>'+esc(c.name)+'</b> será estampada na arte gerada.';
+      document.getElementById("e_logoname").textContent = "✓ logo de "+c.name; document.getElementById("e_logodrop").classList.add("has");
+    }catch(e){ prev.innerHTML='<span class="err">Não consegui carregar a logo.</span>'; }
+  } else { prev.innerHTML = '<span class="err">Esse cliente está sem logo cadastrada.</span>'; if(hint) hint.innerHTML='<span class="err">Esse cliente está sem logo.</span>'; }
+}
+function pickClientLogo(){
+  const f = document.getElementById("nc_logo").files[0]; if(!f) return;
+  const fr = new FileReader(); fr.onload=()=>{ ncLogoData=fr.result; document.getElementById("nc_logodrop").classList.add("has"); document.getElementById("nc_logoname").textContent="✓ "+f.name; }; fr.readAsDataURL(f);
+}
+async function saveClient(){
+  const name = document.getElementById("nc_name").value.trim();
+  if(!name){ document.getElementById("nc_msg").innerHTML='<span class="err">Informe o nome.</span>'; return; }
+  const btn=document.getElementById("nc_btn"); btn.disabled=true; document.getElementById("nc_msg").textContent="Salvando...";
+  const d = await post({action:"add_client", name, logo:ncLogoData||undefined});
+  btn.disabled=false;
+  if(d.ok){ document.getElementById("nc_msg").textContent="Cliente salvo! ✅"; document.getElementById("nc_name").value=""; ncLogoData=""; document.getElementById("nc_logoname").textContent=""; document.getElementById("nc_logodrop").classList.remove("has"); await loadClients(); document.getElementById("client_sel").value=d.client.id; selectClient(); }
+  else { document.getElementById("nc_msg").innerHTML='<span class="err">Erro: '+esc(d.error||"falha")+'</span>'; }
+}
+async function start(){
+  try{
+    const r = await fetch(API+"?key="+encodeURIComponent(KEY)+"&gallery=1");
+    if(r.status===401) throw new Error("401");
+    document.getElementById("login").style.display="none";
+    document.getElementById("topbar").style.display="flex";
+    document.getElementById("wrap").style.display="block";
+    renderFormats(); updateCost(); loadClients(); loadGallery();
+  }catch(e){ document.getElementById("err").textContent="Senha inválida."; localStorage.removeItem("alc_key"); }
+}
+if(KEY){ start(); }
+</script>
+</body>
+</html>
