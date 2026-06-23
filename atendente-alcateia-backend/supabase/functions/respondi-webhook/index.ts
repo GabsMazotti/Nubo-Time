@@ -91,36 +91,61 @@ Deno.serve(async (req) => {
   const range = parseBudget(budgetRaw);
 
   // --- Dedup por telefone ---
+  // Se o lead já existe E já recebeu o 1º contato -> reenvio real, ignora.
+  // Se já existe MAS ainda não foi contatado (ex.: criado pelo calendly-webhook na corrida do
+  // formulário com Calendly embutido), NÃO ignora: reaproveita o lead, completa os dados do form
+  // e segue para enviar a 1ª mensagem (senão o lead que agenda no form fica sem WhatsApp).
+  let leadRow: Record<string, any> | null = null;
   if (norm.ok) {
-    const { data: existing } = await db.from("aa_leads").select("id, first_contact_sent_at").eq("phone", norm.phone).maybeSingle();
+    const { data: existing } = await db.from("aa_leads").select("*").eq("phone", norm.phone).maybeSingle();
     if (existing) {
-      await addHistory(db, existing.id, "lead_received_duplicate", "Reenvio do formulário (lead já existe).", { payload });
-      return json({ ok: true, deduped: true, lead_id: existing.id });
+      if (existing.first_contact_sent_at) {
+        await addHistory(db, existing.id, "lead_received_duplicate", "Reenvio do formulário (lead já contatado).", { payload });
+        return json({ ok: true, deduped: true, lead_id: existing.id });
+      }
+      // Completa os campos do form que o calendly-webhook não captura (mercado, orçamento, etc.).
+      const merged: Record<string, any> = {
+        market: existing.market ?? market ?? null,
+        role: existing.role ?? role ?? null,
+        works_with: existing.works_with ?? worksWith ?? null,
+        start_timeframe: existing.start_timeframe ?? timeframe ?? null,
+        budget_raw: existing.budget_raw ?? budgetRaw ?? null,
+        budget_min: existing.budget_min ?? range.min,
+        budget_max: existing.budget_max ?? range.max,
+        email: existing.email ?? email ?? null,
+        form_payload: payload,
+      };
+      await db.from("aa_leads").update(merged).eq("id", existing.id);
+      leadRow = { ...existing, ...merged };
+      await addHistory(db, existing.id, "lead_received", "Lead já existia sem 1º contato (corrida Calendly/form) — completando dados e enviando.", { payload });
     }
   }
 
-  // --- Cria o lead ---
-  const { data: lead, error } = await db.from("aa_leads").insert({
-    name,
-    phone: norm.phone,
-    phone_valid: norm.ok,
-    phone_raw: rawPhone ?? null,
-    email: email ?? null,
-    market: market ?? null,
-    role: role ?? null,
-    works_with: worksWith ?? null,
-    start_timeframe: timeframe ?? null,
-    budget_raw: budgetRaw ?? null,
-    budget_min: range.min,
-    budget_max: range.max,
-    temperature: initialTemperature(range),
-    status: "novo_lead",
-    form_payload: payload,
-  }).select().single();
+  // --- Cria o lead (se ainda não existe) ---
+  if (!leadRow) {
+    const { data: created, error } = await db.from("aa_leads").insert({
+      name,
+      phone: norm.phone,
+      phone_valid: norm.ok,
+      phone_raw: rawPhone ?? null,
+      email: email ?? null,
+      market: market ?? null,
+      role: role ?? null,
+      works_with: worksWith ?? null,
+      start_timeframe: timeframe ?? null,
+      budget_raw: budgetRaw ?? null,
+      budget_min: range.min,
+      budget_max: range.max,
+      temperature: initialTemperature(range),
+      status: "novo_lead",
+      form_payload: payload,
+    }).select().single();
+    if (error || !created) return json({ error: "db_insert_failed", detail: error?.message }, 500);
+    leadRow = created;
+    await addHistory(db, created.id, "lead_received", "Lead recebido via Respondi.", { telefone_normalizado: norm.phone, valido: norm.ok });
+  }
 
-  if (error || !lead) return json({ error: "db_insert_failed", detail: error?.message }, 500);
-
-  await addHistory(db, lead.id, "lead_received", "Lead recebido via Respondi.", { telefone_normalizado: norm.phone, valido: norm.ok });
+  const lead = leadRow!;
   // --- Telefone inválido: não envia, sinaliza humano ---
   if (!norm.ok) {
     await db.from("aa_leads").update({ status: "precisa_humano", needs_human: true }).eq("id", lead.id);
