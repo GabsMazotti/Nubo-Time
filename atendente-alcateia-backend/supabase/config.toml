@@ -21,3 +21,7 @@ verify_jwt = false
 [functions.inbox]
 # Inbox estilo WhatsApp (leitura) protegida por senha (?key=PANEL_KEY).
 verify_jwt = false
+
+[functions.creatives]
+# Máquina de criativos (gera/edita imagens via OpenAI/Gemini) protegida por senha (?key=PANEL_KEY).
+verify_jwt = false

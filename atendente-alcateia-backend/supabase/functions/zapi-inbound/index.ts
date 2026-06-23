@@ -214,6 +214,16 @@ Deno.serve(async (req) => {
         await db.from("aa_scheduled_tasks").update({ status: "canceled" })
           .eq("lead_id", lead.id).eq("status", "pending")
           .in("type", REMINDER_TYPES);
+        // Avisa o Gabriel que o lead confirmou + FICHA de descoberta (pra ele entrar na call preparado).
+        const gabriel = Deno.env.get("GABRIEL_WHATSAPP_NUMBER");
+        if (gabriel) {
+          const quandoF = appt?.scheduled_at ? formatDiaHora(appt.scheduled_at) : (agendamento.quando as string ?? "");
+          const ficha = (decision.gabriel_message && decision.gabriel_message.trim())
+            ? decision.gabriel_message.trim()
+            : `✅ Lead confirmou presença!\nLead: ${lead.name} · ${quandoF}\nMercado: ${lead.market ?? "não informado"}\nJá rodou fora do Brasil: não informado\nNegociações disponíveis (afiliado): não informado`;
+          const g = await sendText(gabriel, ficha);
+          await addHistory(db, lead.id, "gabriel_notified", ficha, { kind: "confirmacao_presenca", sent_ok: g.ok });
+        }
       } else if (newStatus === "remarcar_reuniao" || newStatus === "reuniao_cancelada") {
         await db.from("aa_scheduled_tasks").update({ status: "canceled" })
           .eq("lead_id", lead.id).eq("status", "pending")

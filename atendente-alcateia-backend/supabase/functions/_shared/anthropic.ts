@@ -36,7 +36,7 @@ const TOOL = {
       needs_human: { type: "boolean", description: "true se precisa de atendimento humano (handoff)." },
       send_calendly: { type: "boolean", description: "true para anexar o link do Calendly à mensagem." },
       notify_gabriel: { type: "boolean", description: "Sinal INTERNO (não aparece pro lead): true quando o caso precisa de acompanhamento humano/operacional." },
-      gabriel_message: { type: "string", description: "Resumo interno do caso para acompanhamento, se notify_gabriel." },
+      gabriel_message: { type: "string", description: "Mensagem/ficha interna para o Gabriel: quando notify_gabriel, OU quando status=call_confirmada (ficha de descoberta da call)." },
       history_note: { type: "string", description: "Nota curta para o histórico do lead." },
     },
     required: ["reply", "status", "temperature", "qualified", "needs_human", "send_calendly", "notify_gabriel"],
