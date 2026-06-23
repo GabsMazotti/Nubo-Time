@@ -96,6 +96,17 @@
       <textarea id="c_prompt" placeholder="Ex.: criativo de bônus de boas-vindas para cassino, fundo escuro com fichas douradas, espaço pro logo no topo e um CTA chamativo embaixo"></textarea>
       <label>Formato</label>
       <div class="chips" id="c_format"></div>
+      <label style="margin-top:10px"><input type="checkbox" id="c_uselogo" checked style="width:auto;vertical-align:middle"/> Estampar a logo do cliente selecionado</label>
+      <div class="row"><div><label>Posição da logo</label>
+        <select id="c_logopos">
+          <option value="top-right">canto superior direito</option>
+          <option value="top-left">canto superior esquerdo</option>
+          <option value="top-center">topo (centro)</option>
+          <option value="bottom-right">canto inferior direito</option>
+          <option value="bottom-left">canto inferior esquerdo</option>
+          <option value="bottom-center">rodapé (centro)</option>
+        </select></div></div>
+      <p class="hint" id="c_logohint">Selecione um cliente no topo pra estampar a logo dele.</p>
       <button class="btn" id="c_btn" onclick="criar()">Gerar artes</button>
       <div class="msg" id="c_msg"></div>
       <div class="grid" id="c_out"></div>
@@ -183,7 +194,9 @@ async function criar(){
   if(!prompt){ document.getElementById("c_msg").innerHTML='<span class="err">Escreva um prompt.</span>'; return; }
   const btn=document.getElementById("c_btn"); btn.disabled=true;
   document.getElementById("c_msg").textContent="Gerando... (pode levar alguns segundos)";
-  const d = await post({action:"create", prompt, model:document.getElementById("c_model").value, quality:document.getElementById("c_quality").value, format:cFormat, n:document.getElementById("c_n").value});
+  const payload = {action:"create", prompt, model:document.getElementById("c_model").value, quality:document.getElementById("c_quality").value, format:cFormat, n:document.getElementById("c_n").value};
+  if(document.getElementById("c_uselogo").checked && logoData){ payload.overlay_logo = logoData; payload.logo_pos = document.getElementById("c_logopos").value; }
+  const d = await post(payload);
   btn.disabled=false;
   if(d.images && d.images.length){ document.getElementById("c_out").innerHTML = d.images.map(card).join(""); document.getElementById("c_msg").textContent = d.partial?"Algumas variações falharam, mas geramos o que deu.":"Pronto! ✅"; loadGallery(); }
   else { document.getElementById("c_msg").innerHTML='<span class="err">Erro: '+esc(d.error||"falha")+'</span>'; }
@@ -217,13 +230,15 @@ async function selectClient(){
   const c = clients.find(x=>x.id===id);
   const prev = document.getElementById("client_preview");
   logoData = "";
-  if(!c){ prev.textContent=""; document.getElementById("e_logoname").textContent=""; document.getElementById("e_logodrop").classList.remove("has"); return; }
+  const hint = document.getElementById("c_logohint");
+  if(!c){ prev.textContent=""; document.getElementById("e_logoname").textContent=""; document.getElementById("e_logodrop").classList.remove("has"); if(hint) hint.textContent="Selecione um cliente no topo pra estampar a logo dele."; return; }
   if(c.logo_url){
     try{ const r=await fetch(c.logo_url); logoData = await blobToDataUrl(await r.blob());
       prev.innerHTML = '✓ Usando a logo de <b>'+esc(c.name)+'</b> na edição/troca de logo.';
+      if(hint) hint.innerHTML = '✓ A logo de <b>'+esc(c.name)+'</b> será estampada na arte gerada.';
       document.getElementById("e_logoname").textContent = "✓ logo de "+c.name; document.getElementById("e_logodrop").classList.add("has");
     }catch(e){ prev.innerHTML='<span class="err">Não consegui carregar a logo.</span>'; }
-  } else { prev.innerHTML = '<span class="err">Esse cliente está sem logo cadastrada.</span>'; }
+  } else { prev.innerHTML = '<span class="err">Esse cliente está sem logo cadastrada.</span>'; if(hint) hint.innerHTML='<span class="err">Esse cliente está sem logo.</span>'; }
 }
 function pickClientLogo(){
   const f = document.getElementById("nc_logo").files[0]; if(!f) return;
