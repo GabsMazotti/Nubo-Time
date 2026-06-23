@@ -60,30 +60,49 @@ ${ctx.situation ? `\nSITUAÇÃO: ${ctx.situation}` : ""}`;
     ? ctx.conversation
     : [{ role: "user" as const, content: "(novo lead recebido pelo formulário; ainda não respondeu)" }];
 
-  const res = await fetch("https://api.anthropic.com/v1/messages", {
-    method: "POST",
-    headers: {
-      "x-api-key": apiKey,
-      "anthropic-version": "2023-06-01",
-      "content-type": "application/json",
-    },
-    body: JSON.stringify({
-      model,
-      max_tokens: 1024,
-      system,
-      tools: [TOOL],
-      tool_choice: { type: "tool", name: "responder_lead" },
-      messages,
-    }),
+  const body = JSON.stringify({
+    model,
+    max_tokens: 1024,
+    system,
+    tools: [TOOL],
+    tool_choice: { type: "tool", name: "responder_lead" },
+    messages,
   });
 
-  if (!res.ok) {
-    const txt = await res.text();
-    throw new Error(`Anthropic ${res.status}: ${txt}`);
+  // Retry com backoff em limites de taxa (429) e erros transitórios (5xx/529/rede).
+  // Importante em dias de volume (live): evita que um pico de uso deixe o lead sem resposta.
+  const RETRYABLE = new Set([429, 500, 502, 503, 504, 529]);
+  const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+  let lastErr = "Anthropic indisponível";
+
+  for (let attempt = 0; attempt < 4; attempt++) {
+    if (attempt > 0) await sleep(600 * 2 ** (attempt - 1)); // 0.6s, 1.2s, 2.4s
+    let res: Response;
+    try {
+      res = await fetch("https://api.anthropic.com/v1/messages", {
+        method: "POST",
+        headers: {
+          "x-api-key": apiKey,
+          "anthropic-version": "2023-06-01",
+          "content-type": "application/json",
+        },
+        body,
+      });
+    } catch (e) {
+      lastErr = `fetch_error: ${(e as Error).message}`;
+      continue; // erro de rede -> tenta de novo
+    }
+
+    if (res.ok) {
+      const data = await res.json();
+      const toolUse = (data.content ?? []).find((b: { type: string }) => b.type === "tool_use");
+      if (!toolUse) throw new Error("Resposta sem tool_use");
+      return toolUse.input as BrainDecision;
+    }
+
+    lastErr = `Anthropic ${res.status}: ${await res.text()}`;
+    if (!RETRYABLE.has(res.status)) break; // erro não-transitório (ex.: 400/401) -> não adianta repetir
   }
 
-  const data = await res.json();
-  const toolUse = (data.content ?? []).find((b: { type: string }) => b.type === "tool_use");
-  if (!toolUse) throw new Error("Resposta sem tool_use");
-  return toolUse.input as BrainDecision;
+  throw new Error(lastErr);
 }

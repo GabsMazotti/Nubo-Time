@@ -35,11 +35,27 @@ function wantsReschedule(text?: string): boolean {
   return /(remarc|reagend|adiar|n[ãa]o vou conseguir|n[ãa]o vou poder|n[ãa]o consigo nesse|outro hor[áa]rio|outro dia|mudar o hor|trocar o hor|mudar a reuni|mudar a call|outro momento)/.test(t);
 }
 
-/** Confirmação clara de presença na reunião (rede de segurança p/ leads com reunião pendente). */
+/**
+ * Adiamento/negação/pergunta sobre confirmar DEPOIS — NÃO é confirmação de presença.
+ * Ex.: "posso te confirmar em 1h?", "confirmo mais tarde", "ainda não consigo confirmar", "talvez".
+ * Funciona como VETO: mesmo que o cérebro escorregue e marque confirmação, aqui a gente segura.
+ */
+function defersConfirm(text?: string): boolean {
+  if (!text) return false;
+  const t = text.toLowerCase();
+  return /(posso (te )?confirmar|vou confirmar|confirm(o|ar) (depois|mais tarde|em|daqui|amanh)|em uma hora|em 1 ?h\b|mais tarde|daqui a pouco|ainda n[ãa]o|n[ãa]o posso|n[ãa]o consigo|n[ãa]o sei se|talvez)/.test(t);
+}
+
+/**
+ * Confirmação CLARA de presença na reunião (rede de segurança p/ leads com reunião pendente).
+ * Removido o verbo solto "confirmar" e termos fracos ("certo"/"pode ser"/"perfeito") que geravam
+ * falso-positivo. Se a frase adia/nega (defersConfirm), não conta como confirmação.
+ */
 function wantsConfirm(text?: string): boolean {
   if (!text) return false;
   const t = text.toLowerCase();
-  return /(confirmo|confirmad|confirmar|t[ôo] dentro|estarei|vou sim|combinado|fechado|pode contar|perfeito|isso mesmo|tudo certo|\bcerto\b|pode ser|com certeza|claro que sim)/.test(t);
+  if (defersConfirm(t)) return false;
+  return /(\bconfirmo\b|confirmad[oa]|t[ôo] dentro|estarei|vou sim|combinado|fechado|pode contar|isso mesmo|tudo certo|com certeza|claro que sim)/.test(t);
 }
 
 Deno.serve(async (req) => {
@@ -148,8 +164,18 @@ Deno.serve(async (req) => {
             : undefined,
         });
       } catch (e) {
+        // Cérebro indisponível mesmo após os retries: NÃO deixa o lead no vácuo.
         await addHistory(db, lead.id, "error", `Falha no cérebro: ${(e as Error).message}`);
-        return json({ ok: true, warning: "falha_brain", detail: (e as Error).message });
+        try {
+          await sendText(phone, "Opa! Recebi sua mensagem 🙌 Me dá um minutinho que já te respondo certinho.");
+          await db.from("aa_messages").insert({ lead_id: lead.id, direction: "outbound", body: "Opa! Recebi sua mensagem 🙌 Me dá um minutinho que já te respondo certinho.", meta: { kind: "fallback_brain_fail" } });
+        } catch { /* ignora erro de envio do fallback */ }
+        const gabriel = Deno.env.get("GABRIEL_WHATSAPP_NUMBER");
+        if (gabriel) {
+          try { await sendText(gabriel, `⚠️ A IA falhou ao responder o lead ${lead.name ?? phone} (possível pico de uso). Dá uma olhada na inbox.`); } catch { /* ignora */ }
+        }
+        await db.from("aa_leads").update({ needs_human: true }).eq("id", lead.id);
+        return json({ ok: true, warning: "falha_brain", fallback_sent: true });
       }
 
       // Mídia força handoff (segurança extra)
@@ -157,8 +183,12 @@ Deno.serve(async (req) => {
 
       const brainStatus = isValidStatus(decision.status) ? decision.status : lead.status;
       // Redes de segurança p/ leads que JÁ têm reunião (prioridade: remarcar > confirmar):
+      const defers = defersConfirm(inb.text);
       const reschedule = agendamento.tem_reuniao === true && brainStatus !== "reuniao_cancelada" && wantsReschedule(inb.text);
-      const confirm = agendamento.tem_reuniao === true && !reschedule && brainStatus !== "reuniao_cancelada" &&
+      // Confirmação exige sinal claro E ausência de adiamento/negação. O veto `!defers` vale até
+      // contra o cérebro: se o lead disse "posso confirmar em 1h?", NÃO confirmamos (não cancela
+      // lembrete, não avisa o Gabriel) — deixa a IA responder naturalmente "claro, fico no aguardo".
+      const confirm = agendamento.tem_reuniao === true && !reschedule && !defers && brainStatus !== "reuniao_cancelada" &&
         appt?.confirmation_status === "pendente" && (brainStatus === "call_confirmada" || wantsConfirm(inb.text));
       const newStatus = reschedule ? "remarcar_reuniao" : confirm ? "call_confirmada" : brainStatus;
 
@@ -213,17 +243,25 @@ Deno.serve(async (req) => {
       });
       const finalStatus = stageEval.status ?? newStatus;
 
-      // Aplica status/decisões (+ etapa, se mudou)
+      // Aplica status/decisões — CORE (colunas que sempre existem). Nunca pode falhar por causa da
+      // feature de etapas: se a migration 0009 não estiver aplicada, o status do CRM ainda salva.
       await db.from("aa_leads").update({
         status: finalStatus,
         temperature: decision.temperature,
         qualified,
-        qualified_at: qualifiedAt,
         needs_human: decision.needs_human || lead.needs_human,
         opted_out: newStatus === "opt_out" ? true : lead.opted_out,
         last_outbound_at: reply.trim() ? new Date().toISOString() : lead.last_outbound_at,
-        ...(stageEval.changed && stageEval.stage ? { stage: stageEval.stage, stage_changed_at: new Date().toISOString() } : {}),
       }).eq("id", lead.id);
+
+      // Colunas da feature de etapas (migration 0009) — best-effort, isolado: se a migration ainda
+      // não tiver sido aplicada, isto falha sozinho sem congelar o CRM nem travar o atendimento.
+      try {
+        await db.from("aa_leads").update({
+          qualified_at: qualifiedAt,
+          ...(stageEval.changed && stageEval.stage ? { stage: stageEval.stage, stage_changed_at: new Date().toISOString() } : {}),
+        }).eq("id", lead.id);
+      } catch { /* migration 0009 ausente -> ignora (CRM segue funcionando) */ }
       if (stageEval.changed && stageEval.stage) {
         await db.from("aa_stage_history").insert({
           lead_id: lead.id, from_stage: lead.stage ?? null, to_stage: stageEval.stage,
