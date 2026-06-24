@@ -94,6 +94,11 @@ ao enviar o link = aguardando_agendamento.`.trim(),
   msg_lembrete_1h: `{nome}, daqui a 1h é a nossa call ({horario}).\n\nLink pra entrar na hora: {link}\n\nTá confirmado por aí?`,
   msg_lembrete_10min: `{nome}, é agora! Nossa call começa em ~10 min ({horario}).\n\nÉ só entrar por aqui: {link}\n\nTô te esperando! 👊`,
 
+  // ── Follow-ups de 1º contato (lead não respondeu). Placeholder: {nome} ──
+  msg_followup_30min: `{nome}, passando só pra confirmar se você recebeu minha mensagem. Vi seu formulário aqui e queria entender se ainda faz sentido a gente conversar sobre a estrutura da sua operação.`,
+  msg_followup_4h: `{nome}, pelo que você marcou no formulário, parece que você já está avaliando iniciar ou escalar uma operação no iGaming. Se ainda fizer sentido, te faço 2 perguntas rápidas pra ver se eu consigo te ajudar.`,
+  msg_followup_dia: `{nome}, vou encerrar por aqui pra não ficar te incomodando. Se ainda quiser conversar sobre estruturar sua operação de iGaming comigo, é só me chamar por aqui.`,
+
   // ── FAQ / respostas prontas (assuntos comuns na conversa). A IA usa como BASE e adapta. ──
   faq_o_que_e: `Sou o Gabriel, da Alcateia Media. A gente é especializada em estruturar e escalar operações de iGaming (apostas, cassino, afiliados) com tráfego pago e performance. Resumindo: eu cuido da máquina de aquisição de jogadores pra você focar na operação.`,
   faq_como_funciona: `Eu estruturo e escalo sua operação com tráfego pago e performance: estratégia, criativos, mídia, funil, tracking e otimização contínua. Na prática, monto a máquina de aquisição e fico otimizando pra baixar o custo por jogador e melhorar a qualidade. Os detalhes a gente alinha na call.`,
@@ -204,6 +209,11 @@ sem pressão, sem falar preço. Status: 1ª resposta = contato_realizado; quando
   msg_lembrete_1h: `{nome}, daqui a 1h é a nossa call da mentoria ({horario}).\n\nLink pra entrar: {link}\n\nTá confirmado por aí?`,
   msg_lembrete_10min: `{nome}, é agora! Nossa call começa em ~10 min ({horario}).\n\nÉ só entrar por aqui: {link}\n\nTô te esperando! 👊`,
 
+  // Follow-ups de 1º contato (mentoria). Placeholder: {nome}
+  msg_followup_30min: `{nome}, passando só pra confirmar se você recebeu minha mensagem 👊 Vi seu interesse na mentoria e queria entender seu momento — você já mexe com afiliação ou tá começando?`,
+  msg_followup_4h: `{nome}, pelo que vi, você quer aprender a operar como afiliado de iGaming na LATAM. Se ainda fizer sentido, te faço 2 perguntas rápidas pra ver como te ajudar.`,
+  msg_followup_dia: `{nome}, vou encerrar por aqui pra não te incomodar. Se ainda quiser conversar sobre a mentoria e montar sua operação de afiliado, é só me chamar.`,
+
   // FAQ da mentoria
   faq_o_que_e: `Sou o Gabriel, da Affiliaplay. A mentoria é um acompanhamento pra você aprender a operar como afiliado de iGaming na América Latina — do zero a uma operação de verdade, captando jogadores e gerando comissões.`,
   faq_como_funciona: `Eu te mostro o passo a passo: escolher mercado e oferta na LATAM, montar funil e tracking, criar campanhas e criativos pro público de lá, e escalar olhando os números. A gente aprofunda tudo na call.`,
@@ -263,10 +273,10 @@ IMPORTANTE: você responde SEMPRE chamando a ferramenta "responder_lead" com a p
 as decisões. O texto de reply é exatamente o que será enviado ao lead no WhatsApp — na SUA voz (Gabriel).`.trim();
 
 /** Bloco de respostas prontas (FAQ) montado a partir da config (override) ou dos defaults. */
-function faqBlock(cfg: Record<string, string>): string {
-  const linhas = FAQ_KEYS
+function faqBlock(cfg: Record<string, string>, defaults: Record<string, string> = PERSONA_DEFAULTS, faqKeys = FAQ_KEYS): string {
+  const linhas = faqKeys
     .map((f) => {
-      const ans = (cfg[f.key] ?? PERSONA_DEFAULTS[f.key] ?? "").trim();
+      const ans = (cfg[f.key] ?? defaults[f.key] ?? "").trim();
       return ans ? `- Se o lead ${f.quando}: ${ans}` : "";
     })
     .filter(Boolean)
@@ -276,11 +286,15 @@ function faqBlock(cfg: Record<string, string>): string {
 }
 
 /** Monta os system prompts das 2 personas a partir da config (overrides) + scaffold protegido. */
-export function buildPersonas(cfg: Record<string, string> = {}): { confirmacao: string; remarketing: string } {
-  const base = cfg.prompt_base ?? PERSONA_DEFAULTS.prompt_base;
-  const conf = cfg.papel_confirmacao ?? PERSONA_DEFAULTS.papel_confirmacao;
-  const rem = cfg.papel_remarketing ?? PERSONA_DEFAULTS.papel_remarketing;
-  const faq = faqBlock(cfg);
+export function buildPersonas(
+  cfg: Record<string, string> = {},
+  defaults: Record<string, string> = PERSONA_DEFAULTS,
+  faqKeys = FAQ_KEYS,
+): { confirmacao: string; remarketing: string } {
+  const base = cfg.prompt_base ?? defaults.prompt_base;
+  const conf = cfg.papel_confirmacao ?? defaults.papel_confirmacao;
+  const rem = cfg.papel_remarketing ?? defaults.papel_remarketing;
+  const faq = faqBlock(cfg, defaults, faqKeys);
   return {
     confirmacao: [base, conf, faq, SCAFFOLD].filter(Boolean).join("\n\n"),
     remarketing: [base, rem, faq, SCAFFOLD].filter(Boolean).join("\n\n"),
@@ -315,21 +329,27 @@ export const TEMPLATES = {
 };
 
 /** Mensagens-padrão EDITÁVEIS pelo painel (resolve override da config ou usa o default). */
-export function buildTemplates(cfg: Record<string, string> = {}) {
+export function buildTemplates(cfg: Record<string, string> = {}, defaults: Record<string, string> = PERSONA_DEFAULTS) {
   return {
     gabrielQualificado: (nome: string) =>
-      fill(cfg.msg_qualificado ?? PERSONA_DEFAULTS.msg_qualificado, { nome }),
+      fill(cfg.msg_qualificado ?? defaults.msg_qualificado, { nome }),
     confirmacaoGabriel: (nome: string, quando: string) =>
-      fill(cfg.msg_agendou ?? PERSONA_DEFAULTS.msg_agendou, { nome, quando: quando || "o horário combinado" }),
+      fill(cfg.msg_agendou ?? defaults.msg_agendou, { nome, quando: quando || "o horário combinado" }),
     confirmacaoFeita: (quando: string) =>
-      fill(cfg.msg_confirmacao ?? PERSONA_DEFAULTS.msg_confirmacao, { quando: quando || "o horário combinado" }),
+      fill(cfg.msg_confirmacao ?? defaults.msg_confirmacao, { quando: quando || "o horário combinado" }),
     remarcacao: (nome: string, url: string) =>
-      fill(cfg.msg_remarcacao ?? PERSONA_DEFAULTS.msg_remarcacao, { nome: nome || "tudo bem", url }),
+      fill(cfg.msg_remarcacao ?? defaults.msg_remarcacao, { nome: nome || "tudo bem", url }),
     lembrete3h: (nome: string, horario: string, link: string) =>
-      fill(cfg.msg_lembrete_3h ?? PERSONA_DEFAULTS.msg_lembrete_3h, { nome, horario, link: link || "(te mando o link aqui já já)" }),
+      fill(cfg.msg_lembrete_3h ?? defaults.msg_lembrete_3h, { nome, horario, link: link || "(te mando o link aqui já já)" }),
     lembrete1h: (nome: string, horario: string, link: string) =>
-      fill(cfg.msg_lembrete_1h ?? PERSONA_DEFAULTS.msg_lembrete_1h, { nome, horario, link: link || "(te mando o link aqui já já)" }),
+      fill(cfg.msg_lembrete_1h ?? defaults.msg_lembrete_1h, { nome, horario, link: link || "(te mando o link aqui já já)" }),
     lembrete10min: (nome: string, horario: string, link: string) =>
-      fill(cfg.msg_lembrete_10min ?? PERSONA_DEFAULTS.msg_lembrete_10min, { nome, horario, link: link || "(te mando o link aqui agora)" }),
+      fill(cfg.msg_lembrete_10min ?? defaults.msg_lembrete_10min, { nome, horario, link: link || "(te mando o link aqui agora)" }),
+    followup30min: (nome: string) =>
+      fill(cfg.msg_followup_30min ?? defaults.msg_followup_30min ?? "", { nome }),
+    followup4h: (nome: string) =>
+      fill(cfg.msg_followup_4h ?? defaults.msg_followup_4h ?? "", { nome }),
+    followupNextDay: (nome: string) =>
+      fill(cfg.msg_followup_dia ?? defaults.msg_followup_dia ?? "", { nome }),
   };
 }

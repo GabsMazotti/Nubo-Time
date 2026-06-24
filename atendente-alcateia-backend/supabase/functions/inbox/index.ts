@@ -2,8 +2,7 @@
 // direto da function, então o HTML/render fica em painel/inbox.html (consome esta API).
 import { admin, addHistory } from "../_shared/db.ts";
 import { sendText } from "../_shared/zapi.ts";
-import { PERSONA_DEFAULTS } from "../_shared/persona.ts";
-import { loadConfig } from "../_shared/config.ts";
+import { funnelDefaults, loadConfig } from "../_shared/config.ts";
 import { STATUS, STATUS_LABEL } from "../_shared/pipeline.ts";
 import { STAGE_DEFAULTS } from "../_shared/stages.ts";
 
@@ -26,10 +25,11 @@ Deno.serve(async (req) => {
 
   // --- Config editável (prompt/inteligência dos atendentes) ---
   if (req.method === "GET" && url.searchParams.get("config")) {
-    const stored = await loadConfig();
+    const fd = funnelDefaults(url.searchParams.get("funnel"));
+    const stored = await loadConfig(fd.funnel);
     const effective: Record<string, string> = {};
-    for (const k of Object.keys(PERSONA_DEFAULTS)) effective[k] = stored[k] ?? PERSONA_DEFAULTS[k];
-    return jsonR({ config: effective, defaults: PERSONA_DEFAULTS });
+    for (const k of Object.keys(fd.defaults)) effective[k] = stored[k] ?? fd.defaults[k];
+    return jsonR({ config: effective, defaults: fd.defaults, funnel: fd.funnel, faq_keys: fd.faqKeys });
   }
 
   // --- Etapas do funil + gatilhos (palavras que marcam a etapa) ---
@@ -56,20 +56,21 @@ Deno.serve(async (req) => {
       return jsonR({ ok: sent.ok, reason: sent.reason, bot_paused: true });
     }
     if (body.action === "save_config" && body.config && typeof body.config === "object") {
-      // Salva só chaves conhecidas (evita lixo). Valor vazio = volta ao default (apaga o override).
+      // Salva só chaves conhecidas do FUNIL (evita lixo). Valor vazio/igual ao default = apaga o override.
+      const fd = funnelDefaults(body.funnel as string | undefined);
       const incoming = body.config as Record<string, unknown>;
       let saved = 0;
-      for (const k of Object.keys(PERSONA_DEFAULTS)) {
+      for (const k of Object.keys(fd.defaults)) {
         if (!(k in incoming)) continue;
         const value = String(incoming[k] ?? "").trim();
-        if (value === "" || value === PERSONA_DEFAULTS[k].trim()) {
-          await db.from("aa_config").delete().eq("key", k); // sem override -> usa default
+        if (value === "" || value === fd.defaults[k].trim()) {
+          await db.from("aa_config").delete().eq("funnel", fd.funnel).eq("key", k); // sem override -> usa default
         } else {
-          await db.from("aa_config").upsert({ key: k, value }, { onConflict: "key" });
+          await db.from("aa_config").upsert({ funnel: fd.funnel, key: k, value }, { onConflict: "funnel,key" });
         }
         saved++;
       }
-      return jsonR({ ok: true, saved });
+      return jsonR({ ok: true, saved, funnel: fd.funnel });
     }
     if (body.action === "save_stages") {
       // Salva o catálogo de etapas (upsert por key) e SUBSTITUI o conjunto de gatilhos.

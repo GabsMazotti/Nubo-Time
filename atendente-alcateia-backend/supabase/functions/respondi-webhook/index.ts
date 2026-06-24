@@ -3,14 +3,13 @@
 import { admin, addHistory } from "../_shared/db.ts";
 import { json } from "../_shared/cors.ts";
 import { normalizePhone } from "../_shared/phone.ts";
-import { parseBudget, initialTemperature, QUALIFY_FLOOR, OUTREACH_FLOOR } from "../_shared/qualification.ts";
+import { parseBudget, initialTemperature } from "../_shared/qualification.ts";
 import { callBrain } from "../_shared/anthropic.ts";
 import { sendBlocks } from "../_shared/zapi.ts";
 import { extractCalendlyEventUuid, fetchCalendlyEventStart } from "../_shared/calendly.ts";
 import { REMINDER_TYPES } from "../_shared/pipeline.ts";
 import { formatDataHora, formatDiaHora } from "../_shared/util.ts";
-import { buildPersonas, buildTemplates } from "../_shared/persona.ts";
-import { loadConfig } from "../_shared/config.ts";
+import { funnelContext, normFunnel } from "../_shared/config.ts";
 
 // Mapeia campos do Respondi (nomes variam) para o nosso modelo.
 function pick(obj: Record<string, unknown>, keys: string[]): string | undefined {
@@ -56,9 +55,11 @@ Deno.serve(async (req) => {
   }
 
   const db = admin();
-  // Config editável (painel): mensagens-padrão e persona com overrides + fallback nos defaults.
-  const cfg = await loadConfig();
-  const T = buildTemplates(cfg);
+  // Funil deste formulário: ?funnel=mentoria no webhook -> mentoria; senão -> alcateia (default seguro).
+  const funnel = normFunnel(new URL(req.url).searchParams.get("funnel"));
+  // Contexto do funil: mensagens-padrão, persona e Calendly do funil CERTO (nunca cruza).
+  const fctx = await funnelContext(funnel);
+  const T = fctx.templates;
 
   // --- Extrai campos ---
   // Formato real do Respondi: { respondent: { answers: { "Pergunta?": "Resposta", ... } } }.
@@ -113,6 +114,7 @@ Deno.serve(async (req) => {
         budget_min: existing.budget_min ?? range.min,
         budget_max: existing.budget_max ?? range.max,
         email: existing.email ?? email ?? null,
+        funnel: fctx.funnel,
         form_payload: payload,
       };
       await db.from("aa_leads").update(merged).eq("id", existing.id);
@@ -138,6 +140,7 @@ Deno.serve(async (req) => {
       budget_max: range.max,
       temperature: initialTemperature(range),
       status: "novo_lead",
+      funnel: fctx.funnel,
       form_payload: payload,
     }).select().single();
     if (error || !created) return json({ error: "db_insert_failed", detail: error?.message }, 500);
@@ -211,11 +214,11 @@ Deno.serve(async (req) => {
       status: "call_agendada", temperature: "quente", stage: "reuniao_marcada", stage_changed_at: new Date().toISOString(),
       first_contact_sent_at: new Date().toISOString(), last_outbound_at: new Date().toISOString(),
     }).eq("id", lead.id);
-  } else if ((range.min ?? 0) >= OUTREACH_FLOOR) {
-    // Tem orçamento mínimo (>= R$5k) e NÃO agendou -> mensagem PADRÃO de abordagem do Gabriel (sem cérebro).
-    // qualified=true só a partir de R$10k; faixa 5–10k entra como "morno" (confirma na conversa).
+  } else if ((range.min ?? 0) >= fctx.outreachFloor) {
+    // Tem o orçamento mínimo do funil e NÃO agendou -> mensagem PADRÃO de abordagem (sem cérebro).
+    // qualified=true a partir do piso de qualificação do funil (Alcateia R$10k · Mentoria R$5k).
     firstMessage = T.gabrielQualificado(name);
-    const jaQualificado = (range.min ?? 0) >= QUALIFY_FLOOR;
+    const jaQualificado = (range.min ?? 0) >= fctx.qualifyFloor;
     await db.from("aa_leads").update({
       status: "contato_realizado", temperature: initialTemperature(range),
       qualified: jaQualificado,
@@ -229,9 +232,9 @@ Deno.serve(async (req) => {
       const decision = await callBrain({
         lead: { ...lead, agendamento, formulario_incompleto: incompleto },
         conversation: [],
-        personaPrompt: buildPersonas(cfg).remarketing,
+        personaPrompt: fctx.personas.remarketing,
         situation: incompleto
-          ? "Primeiro contato com um lead que COMEÇOU o formulário da Alcateia Media mas NÃO finalizou (resposta recuperada/parcial). Na 1ª mensagem: (1) deixe CLARO logo no início que você é da ALCATEIA MEDIA; (2) faça uma BREVE apresentação (1 frase) do que a Alcateia faz — estrutura e tráfego pago para operações de iGaming/apostas; (3) RELEMBRE que ele estava preenchendo nosso formulário e qual era o objetivo dele (estruturar/escalar a operação no iGaming) — use os dados que ele já preencheu, se houver; (4) com leveza, comente que viu que ele não finalizou e pergunte o que aconteceu / como pode ajudar. Curto e natural, conduzindo pra call com o Gabriel quando fizer sentido. Status: contato_realizado."
+          ? "Primeiro contato com um lead que COMEÇOU o nosso formulário mas NÃO finalizou (resposta recuperada/parcial). Na 1ª mensagem: (1) deixe claro quem você é logo no início, conforme a SUA persona; (2) faça uma BREVE apresentação (1 frase) do que você oferece; (3) relembre que ele estava preenchendo nosso formulário e use os dados que ele já preencheu, se houver; (4) com leveza, comente que viu que ele não finalizou e pergunte o que aconteceu / como pode ajudar. Curto e natural, conduzindo pra call quando fizer sentido. Status: contato_realizado."
           : "Primeiro contato. O lead concluiu o formulário e ainda NÃO respondeu nem agendou. Escreva a 1ª mensagem personalizada conduzindo a conversa (status: contato_realizado).",
       });
       firstMessage = decision.reply;

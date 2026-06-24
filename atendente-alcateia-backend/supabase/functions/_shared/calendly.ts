@@ -120,6 +120,18 @@ export async function cancelCalendlyEvent(
   }
 }
 
+/**
+ * Detecta o FUNIL pelo conteúdo do webhook: o evento da mentoria (slug/nome "mentoria-affiliaplay")
+ * contém "mentoria"; o da Alcateia ("alcateia-media") não. Default seguro: 'alcateia'.
+ */
+export function detectFunnel(body: unknown): "alcateia" | "mentoria" {
+  try {
+    return JSON.stringify(body).toLowerCase().includes("mentoria") ? "mentoria" : "alcateia";
+  } catch {
+    return "alcateia";
+  }
+}
+
 /** Interpreta o corpo do webhook do Calendly. */
 export function parseCalendlyWebhook(body: Record<string, unknown>): CalendlyEvent {
   const eventType = String(body.event ?? "");

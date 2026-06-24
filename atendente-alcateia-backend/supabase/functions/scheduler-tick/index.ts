@@ -3,8 +3,8 @@
 import { admin, addHistory } from "../_shared/db.ts";
 import { json } from "../_shared/cors.ts";
 import { sendText } from "../_shared/zapi.ts";
-import { buildTemplates, TEMPLATES } from "../_shared/persona.ts";
-import { loadConfig } from "../_shared/config.ts";
+import { TEMPLATES } from "../_shared/persona.ts";
+import { funnelContext } from "../_shared/config.ts";
 import { formatHorario, formatDataHora } from "../_shared/util.ts";
 
 async function notifyGabriel(db: ReturnType<typeof admin>, leadId: string, msg: string) {
@@ -25,8 +25,6 @@ Deno.serve(async (req) => {
   if (secret && req.headers.get("x-cron-secret") !== secret) return json({ error: "unauthorized" }, 401);
 
   const db = admin();
-  const cfg = await loadConfig();
-  const T = buildTemplates(cfg);
   const nowIso = new Date().toISOString();
 
   // Pega tarefas vencidas
@@ -46,6 +44,8 @@ Deno.serve(async (req) => {
 
     try {
       const { data: lead } = await db.from("aa_leads").select("*").eq("id", task.lead_id).single();
+      // Templates do FUNIL do lead (alcateia x mentoria) — lembrete/follow-up na voz certa.
+      const T = (await funnelContext(lead?.funnel)).templates;
       const nome = (lead?.name as string) ?? "tudo bem";
       const phone = lead?.phone as string | null;
       let done = true;
@@ -64,9 +64,9 @@ Deno.serve(async (req) => {
           processed++; continue;
         }
         if (phone) {
-          const body = task.type === "followup_first_contact_30min" ? TEMPLATES.followup30min(nome)
-            : task.type === "followup_first_contact_4h" ? TEMPLATES.followup4h(nome)
-            : TEMPLATES.followupNextDay(nome);
+          const body = task.type === "followup_first_contact_30min" ? T.followup30min(nome)
+            : task.type === "followup_first_contact_4h" ? T.followup4h(nome)
+            : T.followupNextDay(nome);
           const s = await sendText(phone, body);
           await db.from("aa_messages").insert({ lead_id: lead.id, direction: "outbound", body, external_id: s.id ?? null, meta: { kind: task.type } });
           await addHistory(db, lead.id, "followup_sent", body, { type: task.type, sent_ok: s.ok });

@@ -2,7 +2,7 @@
 // Registra o agendamento e cria as tarefas de confirmação (1h e 30min antes) + checagem de no-show.
 import { admin, addHistory } from "../_shared/db.ts";
 import { json } from "../_shared/cors.ts";
-import { cancelCalendlyEvent, parseCalendlyWebhook } from "../_shared/calendly.ts";
+import { cancelCalendlyEvent, detectFunnel, parseCalendlyWebhook } from "../_shared/calendly.ts";
 import { REMINDER_TYPES } from "../_shared/pipeline.ts";
 import { syncRemarketing } from "../_shared/stages.ts";
 
@@ -38,6 +38,7 @@ Deno.serve(async (req) => {
     const { data } = await db.from("aa_leads").insert({
       name: ev.name ?? "lead", phone: ev.phone ?? null, phone_valid: Boolean(ev.phone),
       email: ev.email ?? null, source: "calendly", status: "call_agendada", temperature: "quente",
+      funnel: detectFunnel(body),
     }).select().single();
     lead = data;
     if (lead) await addHistory(db, lead.id, "lead_received", "Lead criado a partir de agendamento no Calendly.", { ev });

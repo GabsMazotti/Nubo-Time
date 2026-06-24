@@ -7,8 +7,8 @@ import { callBrain } from "../_shared/anthropic.ts";
 import { isValidStatus, REMINDER_TYPES } from "../_shared/pipeline.ts";
 import { evaluateStage, loadStageRules, loadStages, syncRemarketing } from "../_shared/stages.ts";
 import { QUALIFY_FLOOR } from "../_shared/qualification.ts";
-import { buildPersonas, buildTemplates, CALENDLY_URL, TEMPLATES } from "../_shared/persona.ts";
-import { loadConfig } from "../_shared/config.ts";
+import { TEMPLATES } from "../_shared/persona.ts";
+import { funnelContext } from "../_shared/config.ts";
 import { formatDataHora, formatDiaHora } from "../_shared/util.ts";
 import { cancelCalendlyEvent } from "../_shared/calendly.ts";
 
@@ -145,10 +145,11 @@ Deno.serve(async (req) => {
         ? { tem_reuniao: true, quando: appt.scheduled_at ? formatDataHora(appt.scheduled_at) : "horário a confirmar", status: appt.status, confirmacao: appt.confirmation_status }
         : { tem_reuniao: false };
 
-      // Config editável (painel): monta persona e mensagens-padrão com overrides + fallback nos defaults.
-      const cfg = await loadConfig();
-      const personas = buildPersonas(cfg);
-      const T = buildTemplates(cfg);
+      // Contexto do FUNIL do lead (alcateia x mentoria): persona, mensagens e Calendly do funil CERTO.
+      // É aqui que a separação acontece — tudo deriva de lead.funnel (default 'alcateia').
+      const fctx = await funnelContext(lead.funnel);
+      const personas = fctx.personas;
+      const T = fctx.templates;
 
       // Escolhe o atendente de IA: CONFIRMAÇÃO (já agendou) x REMARKETING/abordagem (não agendou).
       const personaPrompt = agendamento.tem_reuniao ? personas.confirmacao : personas.remarketing;
@@ -208,15 +209,14 @@ Deno.serve(async (req) => {
       let reply = decision.reply ?? "";
       if (newStatus === "remarcar_reuniao") {
         // Remarcação: reconhece + manda o link (evita pedir horário E mandar link juntos).
-        const reschedUrl = Deno.env.get("CALENDLY_RESCHEDULE_URL") ?? CALENDLY_URL;
-        reply = T.remarcacao((lead.name as string) ?? "tudo bem", reschedUrl);
+        reply = T.remarcacao((lead.name as string) ?? "tudo bem", fctx.reschedUrl);
       } else if (newStatus === "call_confirmada") {
         // Confirmação: resposta curta + 1 pergunta breve sobre a operação (sem explicar a call, sem duplicar).
         const quando = appt?.scheduled_at ? formatDiaHora(appt.scheduled_at) : (agendamento.quando as string ?? "");
         reply = T.confirmacaoFeita(quando);
       } else if (!agendamento.tem_reuniao && decision.send_calendly && reply && !reply.includes("calendly.com")) {
         // Só oferece o link de agendamento se o lead AINDA não tem reunião (não reoferecer a quem já agendou).
-        reply += `\n\n${TEMPLATES.calendlyLine(CALENDLY_URL)}`;
+        reply += `\n\n${TEMPLATES.calendlyLine(fctx.calendlyUrl)}`;
       }
 
       // Envia a resposta ao lead — em BLOCOS (cada parágrafo é uma mensagem), pra soar natural.
