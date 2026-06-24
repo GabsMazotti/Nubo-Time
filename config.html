@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Configurações · Atendente Alcateia</title>
+<title>Configurações · Atendente</title>
 <style>
   :root{color-scheme:dark} *{box-sizing:border-box}
   body{margin:0;height:100vh;background:#0b141a;color:#e9edef;font:14px/1.45 system-ui,Segoe UI,Roboto,sans-serif;overflow:hidden}
@@ -22,6 +22,8 @@
   .inner{max-width:860px;margin:0 auto;padding:22px 18px 90px}
   .intro{color:#8696a0;font-size:13px;margin-bottom:18px}
   .intro b{color:#e9edef}
+  .funnelbar{display:flex;align-items:center;gap:10px;background:#111b21;border:1px solid #222d34;border-radius:10px;padding:10px 14px;margin-bottom:16px}
+  .funnelbar .pill{font-weight:800}
   .field{background:#111b21;border:1px solid #222d34;border-radius:10px;padding:14px;margin-bottom:14px}
   .field h3{margin:0 0 4px;font-size:14px}
   .field .hint{color:#8696a0;font-size:12px;margin-bottom:8px}
@@ -33,11 +35,12 @@
   .savebar button{padding:10px 22px;border-radius:8px;border:0;background:#00a884;color:#fff;font-weight:700;cursor:pointer}
   .savebar button:disabled{opacity:.5;cursor:default}
   .sechead{font-weight:800;color:#cbd5e1;margin:18px 4px 8px;font-size:13px;text-transform:uppercase;letter-spacing:.5px}
+  select.funnel{background:#0b141a;color:#e9edef;border:1px solid #2a3942;border-radius:8px;padding:5px 8px;font-weight:700}
 </style>
 </head>
 <body>
   <div class="login" id="login">
-    <h2>🐺 Configurações Alcateia</h2>
+    <h2>🐺 Configurações</h2>
     <div style="color:#8696a0">Digite a senha de acesso</div>
     <input id="key" type="password" placeholder="senha do painel" onkeydown="if(event.key==='Enter')saveKey()" />
     <button onclick="saveKey()">Entrar</button>
@@ -52,6 +55,13 @@
       <a class="tab on" href="config.html">⚙️ Config</a>
       <a class="tab" href="criativos.html">🎨 Criativos</a>
     </nav>
+    <span style="display:flex;align-items:center;gap:7px;margin-left:4px">
+      <span style="color:#8696a0;font-size:12px">Atendente:</span>
+      <select id="funnelSel" class="funnel" onchange="switchFunnel(this.value)">
+        <option value="alcateia">🐺 Alcateia</option>
+        <option value="mentoria">🎓 Mentoria</option>
+      </select>
+    </span>
     <span class="right"><a onclick="logout()">sair</a></span>
   </div>
 
@@ -65,84 +75,180 @@
 <script>
 const API = "https://dttqxqnxlmkrclvhtqqx.supabase.co/functions/v1/inbox";
 let KEY = localStorage.getItem("alc_key") || "";
+let FUNNEL = localStorage.getItem("alc_funnel") || "alcateia";
 let DEFAULTS = {};
+let FAQ_KEYS = [];      // FAQ do funil atual (vem do backend)
+let STAGES = [];        // catálogo de etapas do funil (compartilhado)
+let STATUS_OPTS = [];   // opções de status do CRM (para o dropdown de cada etapa)
 
-// Campos editáveis (mesmas chaves do backend). Ordem e textos de ajuda só para o painel.
+// Campos fixos (existem nos dois funis). O FAQ é montado dinâmico pelo que o backend devolve.
 const SECTIONS = [
-  { title: "Inteligência dos atendentes (prompt)", fields: [
-    { key:"prompt_base", label:"🧠 Base / personalidade (vale pros 2 atendentes)", hint:"Quem é o Gabriel, o negócio, tom de voz, a regra de qualificação (R$10k), objeções e compliance.", rows:16 },
+  { title: "Inteligência do atendente (prompt)", fields: [
+    { key:"prompt_base", label:"🧠 Base / personalidade", hint:"Quem é o atendente, o negócio, tom de voz, a regra de qualificação, objeções e compliance.", rows:16 },
     { key:"papel_confirmacao", label:"📅 Atendente de Confirmação (lead que JÁ agendou)", hint:"Como agir com quem já marcou a call: acolher, confirmar, remarcar.", rows:9 },
     { key:"papel_remarketing", label:"🔥 Atendente de Abordagem (lead que NÃO agendou)", hint:"Como reengajar, qualificar e conduzir pra call quem não agendou.", rows:7 },
   ]},
   { title: "Mensagens-padrão", fields: [
-    { key:"msg_qualificado", label:"💬 1ª mensagem — qualificado que não agendou", hint:"Variável disponível: {nome}", rows:5 },
+    { key:"msg_qualificado", label:"💬 1ª mensagem — qualificado que não agendou", hint:"Variável: {nome}", rows:5 },
     { key:"msg_agendou", label:"💬 1ª mensagem — quem já agendou", hint:"Variáveis: {nome}, {quando}", rows:4 },
     { key:"msg_confirmacao", label:"✅ Resposta quando o lead confirma a call", hint:"Variável: {quando}", rows:4 },
     { key:"msg_remarcacao", label:"🔁 Resposta quando o lead quer remarcar", hint:"Variáveis: {nome}, {url}", rows:4 },
   ]},
-  { title: "Lembretes de confirmação da call", note:"Enviados automaticamente 3h, 1h e 10min antes da reunião, já com o link da call (gerado pelo Calendly). Variáveis: {nome}, {horario}, {link}.", fields: [
+  { title: "Follow-ups de 1º contato (lead não respondeu)", note:"Enviados 30min, 4h e no dia seguinte se o lead não responder. Variável: {nome}.", fields: [
+    { key:"msg_followup_30min", label:"⏱️ Follow-up — 30 minutos", hint:"Variável: {nome}", rows:3 },
+    { key:"msg_followup_4h", label:"⏱️ Follow-up — 4 horas", hint:"Variável: {nome}", rows:3 },
+    { key:"msg_followup_dia", label:"⏱️ Follow-up — dia seguinte", hint:"Variável: {nome}", rows:3 },
+  ]},
+  { title: "Lembretes de confirmação da call", note:"Enviados 3h, 1h e 10min antes da reunião, já com o link da call. Variáveis: {nome}, {horario}, {link}.", fields: [
     { key:"msg_lembrete_3h", label:"⏰ Lembrete 3 horas antes", hint:"Variáveis: {nome}, {horario}, {link}", rows:4 },
     { key:"msg_lembrete_1h", label:"⏰ Lembrete 1 hora antes", hint:"Variáveis: {nome}, {horario}, {link}", rows:4 },
     { key:"msg_lembrete_10min", label:"⏰ Lembrete 10 minutos antes", hint:"Variáveis: {nome}, {horario}, {link}", rows:4 },
   ]},
-  { title: "Perguntas & respostas (FAQ)", note:"Respostas-base para os assuntos mais comuns. A IA usa como base e adapta à conversa — não cola literal.", fields: [
-    { key:"faq_o_que_e", label:"❓ O que é a Alcateia? / O que vocês fazem?", hint:"", rows:3 },
-    { key:"faq_como_funciona", label:"❓ Como funciona o trabalho de vocês?", hint:"", rows:3 },
-    { key:"faq_preco", label:"💰 Quanto custa? / Qual o valor?", hint:"", rows:3 },
-    { key:"faq_garantia", label:"🛡️ Vocês garantem resultado? Quanto vou faturar?", hint:"", rows:3 },
-    { key:"faq_prazo", label:"⏱️ Em quanto tempo vejo resultado? Quando começa?", hint:"", rows:3 },
-    { key:"faq_diferencial", label:"⭐ Qual o diferencial? Por que vocês?", hint:"", rows:3 },
-    { key:"faq_cases", label:"📈 Têm cases? Com quem já trabalharam?", hint:"", rows:3 },
-    { key:"faq_call", label:"📞 Como é a call? Quanto dura? Com quem?", hint:"", rows:3 },
-    { key:"faq_contrato", label:"📄 Tem contrato / fidelidade / multa?", hint:"", rows:3 },
-    { key:"faq_pagamento", label:"💳 Como é o pagamento? Parcela?", hint:"", rows:3 },
-    { key:"faq_iniciante", label:"🌱 Ainda não tenho operação / quero começar do zero", hint:"", rows:3 },
-    { key:"faq_plataforma", label:"🎰 Vocês fornecem a casa/plataforma de apostas?", hint:"", rows:3 },
-    { key:"faq_concorrencia", label:"🤝 Já tenho agência / gestor de tráfego", hint:"", rows:3 },
-    { key:"faq_robo", label:"🤖 Você é robô? É você mesmo?", hint:"", rows:3 },
-  ]},
 ];
 
 function esc(s){return String(s==null?"":s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));}
+function cap(s){s=String(s||"");return s.charAt(0).toUpperCase()+s.slice(1);}
 function saveKey(){const v=document.getElementById("key").value.trim();if(!v)return;KEY=v;localStorage.setItem("alc_key",v);start();}
 function logout(){localStorage.removeItem("alc_key");location.reload();}
 
+function switchFunnel(f){
+  FUNNEL = (f==="mentoria")?"mentoria":"alcateia";
+  localStorage.setItem("alc_funnel", FUNNEL);
+  flash("Carregando atendente "+(FUNNEL==="mentoria"?"da Mentoria":"da Alcateia")+"…");
+  load().then(()=>flash("")).catch(()=>flash("Erro ao carregar."));
+}
+
 async function load(){
-  const r = await fetch(API+"?key="+encodeURIComponent(KEY)+"&config=1");
+  const r = await fetch(API+"?key="+encodeURIComponent(KEY)+"&config=1&funnel="+FUNNEL);
   if(r.status===401) throw new Error("unauthorized");
   const d = await r.json();
   DEFAULTS = d.defaults || {};
+  FAQ_KEYS = d.faq_keys || [];
   const cfg = d.config || {};
-  let html = '<div class="intro">Edite o que o atendente <b>fala e como pensa</b>. As alterações valem <b>na hora</b>, sem precisar publicar nada. As regras de segurança do atendente (identidade, formato em blocos, etapas do funil) são fixas e protegidas.</div>';
+  const isAlc = FUNNEL==="alcateia";
+
+  let html = '<div class="funnelbar"><span class="pill">'+(isAlc?'🐺 Atendente Alcateia':'🎓 Atendente Mentoria (Affiliaplay)')+'</span>'
+    + '<span style="color:#8696a0;font-size:12px">Você está editando as mensagens deste atendente. Os dois são independentes — nada que você muda aqui afeta o outro.</span></div>';
+  html += '<div class="intro">Edite o que o atendente <b>fala e como pensa</b>. As alterações valem <b>na hora</b>. As regras de segurança (identidade, formato em blocos) são fixas e protegidas.</div>';
+
+  // Etapas do funil — catálogo é COMPARTILHADO entre os dois atendentes; editável só pela Alcateia.
+  if(isAlc){
+    let stagesHtml = "";
+    try{
+      const rs = await fetch(API+"?key="+encodeURIComponent(KEY)+"&stages=1");
+      const ds = await rs.json();
+      STAGES = ds.stages || [];
+      STATUS_OPTS = ds.status_options || [];
+      stagesHtml = buildStagesHtml(STAGES, ds.rules || []);
+      html += '<div class="sechead">Etapas do funil (compartilhado)</div>';
+      html += '<div class="intro" style="margin:-2px 4px 10px">Cada etapa tem um <b>status no CRM</b> e <b>palavras-gatilho</b>. Uma palavra/frase por linha — comece com <b>re:</b> para regex.</div>';
+      html += stagesHtml;
+    }catch(e){ html += '<div class="intro">Não foi possível carregar as etapas.</div>'; }
+  }
+
   for(const sec of SECTIONS){
     html += '<div class="sechead">'+sec.title+'</div>';
     if(sec.note) html += '<div class="intro" style="margin:-2px 4px 10px">'+esc(sec.note)+'</div>';
     for(const f of sec.fields){
-      html += '<div class="field"><h3>'+f.label+'</h3><div class="hint">'+esc(f.hint)+'</div>'
-        + '<textarea id="f_'+f.key+'" rows="'+(f.rows||5)+'">'+esc(cfg[f.key]!=null?cfg[f.key]:"")+'</textarea>'
-        + '<div class="rowbtn"><button class="reset" onclick="resetField(\''+f.key+'\')">↩ restaurar padrão</button></div></div>';
+      if(DEFAULTS[f.key]==null) continue; // chave não existe neste funil
+      html += fieldHtml(f.key, f.label, f.hint, f.rows, cfg);
     }
   }
+
+  // FAQ dinâmico (cada funil tem o seu conjunto)
+  if(FAQ_KEYS.length){
+    html += '<div class="sechead">Perguntas & respostas (FAQ)</div>';
+    html += '<div class="intro" style="margin:-2px 4px 10px">Respostas-base para os assuntos comuns. A IA usa como base e adapta — não cola literal.</div>';
+    for(const fk of FAQ_KEYS){
+      html += fieldHtml(fk.key, '❓ '+cap(fk.quando), "", 3, cfg);
+    }
+  }
+
   document.getElementById("inner").innerHTML = html;
+  const sel=document.getElementById("funnelSel"); if(sel) sel.value=FUNNEL;
+}
+
+function fieldHtml(key,label,hint,rows,cfg){
+  return '<div class="field"><h3>'+label+'</h3>'+(hint?'<div class="hint">'+esc(hint)+'</div>':'')
+    + '<textarea id="f_'+key+'" rows="'+(rows||4)+'">'+esc(cfg[key]!=null?cfg[key]:"")+'</textarea>'
+    + '<div class="rowbtn"><button class="reset" onclick="resetField(\''+key+'\')">↩ restaurar padrão</button></div></div>';
+}
+
+// Mapeia direção interna <-> rótulo amigável
+const DIRS = [["inbound","mensagem do lead"],["outbound","mensagem do atendente"],["any","qualquer mensagem"]];
+
+function buildStagesHtml(stages, rules){
+  const byStage = {};
+  for(const r of rules){
+    (byStage[r.stage_key] = byStage[r.stage_key] || {dir:"inbound", lines:[]});
+    byStage[r.stage_key].dir = r.direction || "inbound";
+    byStage[r.stage_key].lines.push((r.match_type==="regex"?"re:":"")+r.pattern);
+  }
+  const statusOpt = (sel)=> STATUS_OPTS.map(o=>'<option value="'+esc(o.value)+'"'+(o.value===sel?' selected':'')+'>'+esc(o.label)+'</option>').join("");
+  const dirOpt = (sel)=> DIRS.map(d=>'<option value="'+d[0]+'"'+(d[0]===sel?' selected':'')+'>'+d[1]+'</option>').join("");
+  let h = "";
+  for(const s of stages){
+    const g = byStage[s.key] || {dir:"inbound", lines:[]};
+    h += '<div class="field" data-stage="'+esc(s.key)+'">'
+      + '<h3><input class="stg-label" value="'+esc(s.label)+'" style="background:#0b141a;color:#e9edef;border:1px solid #2a3942;border-radius:6px;padding:4px 8px;font:inherit;font-weight:700;width:60%"></h3>'
+      + '<div class="hint" style="display:flex;gap:14px;flex-wrap:wrap;align-items:center;margin-top:6px">'
+      +   '<span>Status no CRM: <select class="stg-status" style="background:#0b141a;color:#e9edef;border:1px solid #2a3942;border-radius:6px;padding:3px 6px">'+statusOpt(s.status)+'</select></span>'
+      +   '<span>Detectar em: <select class="stg-dir" style="background:#0b141a;color:#e9edef;border:1px solid #2a3942;border-radius:6px;padding:3px 6px">'+dirOpt(g.dir)+'</select></span>'
+      +   '<label style="display:flex;gap:5px;align-items:center"><input type="checkbox" class="stg-active"'+(s.is_active!==false?' checked':'')+'> ativa</label>'
+      + '</div>'
+      + '<textarea class="stg-pat" rows="3" placeholder="uma palavra ou frase por linha (ex.: confirmo)\nre:expressão regular opcional">'+esc(g.lines.join("\n"))+'</textarea>'
+      + '</div>';
+  }
+  return h;
+}
+
+function collectStages(){
+  const stages = [], rules = [];
+  document.querySelectorAll('[data-stage]').forEach((el, idx)=>{
+    const key = el.getAttribute("data-stage");
+    const orig = STAGES.find(s=>s.key===key) || {sort_order:(idx+1)*10};
+    const label = el.querySelector(".stg-label").value.trim() || key;
+    const status = el.querySelector(".stg-status").value;
+    const dir = el.querySelector(".stg-dir").value;
+    const active = el.querySelector(".stg-active").checked;
+    stages.push({ key, label, status, color: orig.color || null, sort_order: orig.sort_order ?? (idx+1)*10, is_active: active });
+    const lines = el.querySelector(".stg-pat").value.split("\n").map(s=>s.trim()).filter(Boolean);
+    for(const line of lines){
+      const isRe = line.toLowerCase().startsWith("re:");
+      rules.push({ stage_key:key, direction:dir, match_type:isRe?"regex":"contains",
+        pattern: isRe? line.slice(3).trim() : line, priority: (orig.sort_order ?? (idx+1)*10)+100, is_active:true });
+    }
+  });
+  return { stages, rules };
 }
 
 function resetField(k){ const ta=document.getElementById("f_"+k); if(ta){ ta.value = DEFAULTS[k]||""; flash("Campo restaurado ao padrão (lembre de salvar)."); } }
 function flash(m){ document.getElementById("savemsg").textContent=m; }
 
 async function saveAll(){
-  const btn=document.getElementById("savebtn"); btn.disabled=true; flash("Salvando...");
+  const btn=document.getElementById("savebtn"); btn.disabled=true; flash("Salvando…");
+  // Coleta TODOS os campos renderizados (fixos + FAQ dinâmico) deste funil.
   const config={};
-  for(const sec of SECTIONS) for(const f of sec.fields){ const ta=document.getElementById("f_"+f.key); if(ta) config[f.key]=ta.value; }
+  document.querySelectorAll('textarea[id^="f_"]').forEach(ta=>{ config[ta.id.slice(2)] = ta.value; });
   try{
-    const r = await fetch(API+"?key="+encodeURIComponent(KEY),{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"save_config",config})});
+    const r = await fetch(API+"?key="+encodeURIComponent(KEY),{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"save_config",funnel:FUNNEL,config})});
     const d = await r.json();
-    if(d.ok){ flash("✅ Salvo! Já está valendo no atendimento."); } else { flash("❌ Erro ao salvar: "+(d.error||"")); }
+    if(!d.ok){ flash("❌ Erro ao salvar config: "+(d.error||"")); btn.disabled=false; return; }
+    // Etapas do funil (compartilhadas) — só salva quando o editor está visível (aba Alcateia).
+    if(document.querySelector("[data-stage]")){
+      const payload = collectStages();
+      const rs = await fetch(API+"?key="+encodeURIComponent(KEY),{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"save_stages",stages:payload.stages,rules:payload.rules})});
+      const ds = await rs.json();
+      if(!ds.ok){ flash("⚠️ Config salva, mas falhou nas etapas: "+(ds.error||"")); btn.disabled=false; return; }
+    }
+    flash("✅ Salvo no atendente "+(FUNNEL==="mentoria"?"da Mentoria":"da Alcateia")+"! Já está valendo.");
   }catch(e){ flash("❌ Falha de conexão."); }
   btn.disabled=false;
 }
 
 async function start(){
   try{
+    const sel=document.getElementById("funnelSel"); if(sel) sel.value=FUNNEL;
     await load();
     document.getElementById("login").style.display="none";
     document.getElementById("topbar").style.display="flex";
