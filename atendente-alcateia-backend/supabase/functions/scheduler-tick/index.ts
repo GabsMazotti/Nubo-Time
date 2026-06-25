@@ -51,8 +51,9 @@ Deno.serve(async (req) => {
       const phone = lead?.phone as string | null;
       let done = true;
 
-      // Bot pausado para este lead (humano assumiu) -> não dispara nada automático.
-      if (lead?.bot_paused) {
+      // Bot pausado (humano assumiu) -> não dispara nada AO LEAD. Exceção: o dossiê é INTERNO
+      // (vai pro Gabriel, não pro lead), então dispara mesmo com o bot pausado.
+      if (lead?.bot_paused && task.type !== "dossie_prep") {
         await db.from("aa_scheduled_tasks").update({ status: "canceled", executed_at: new Date().toISOString() }).eq("id", task.id);
         processed++; continue;
       }

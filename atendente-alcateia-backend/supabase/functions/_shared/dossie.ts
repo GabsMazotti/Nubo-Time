@@ -47,9 +47,15 @@ Português do Brasil. Chame a ferramenta "montar_dossie".
 DADOS DO LEAD:
 ${JSON.stringify(ctx.lead, null, 2)}`;
 
-  const messages = ctx.conversation.length > 0
-    ? ctx.conversation
-    : [{ role: "user" as const, content: "(sem conversa registrada; use só os dados do formulário)" }];
+  // A conversa entra como TEXTO num único turno do usuário (é contexto p/ análise, não diálogo a
+  // continuar) — evita o erro 400 "conversa deve terminar em mensagem do usuário".
+  const convText = ctx.conversation.length > 0
+    ? ctx.conversation.map((m) => `${m.role === "user" ? "Lead" : "Atendente"}: ${m.content}`).join("\n")
+    : "(sem conversa registrada — use só os dados do formulário)";
+  const messages = [{
+    role: "user" as const,
+    content: `CONVERSA ATÉ AGORA:\n${convText}\n\nMonte o dossiê deste lead chamando a ferramenta "montar_dossie".`,
+  }];
 
   const body = JSON.stringify({
     model, max_tokens: 800, system, tools: [TOOL],
