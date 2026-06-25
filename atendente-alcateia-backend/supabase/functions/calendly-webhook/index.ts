@@ -3,7 +3,7 @@
 import { admin, addHistory } from "../_shared/db.ts";
 import { json } from "../_shared/cors.ts";
 import { cancelCalendlyEvent, detectFunnel, parseCalendlyWebhook } from "../_shared/calendly.ts";
-import { REMINDER_TYPES } from "../_shared/pipeline.ts";
+import { APPOINTMENT_TASK_TYPES, DOSSIE_TASK } from "../_shared/pipeline.ts";
 import { syncRemarketing } from "../_shared/stages.ts";
 
 async function findLead(db: ReturnType<typeof admin>, ev: { phone?: string; email?: string; name?: string }) {
@@ -52,7 +52,7 @@ Deno.serve(async (req) => {
     }
     await db.from("aa_scheduled_tasks").update({ status: "canceled" })
       .eq("lead_id", lead.id).eq("status", "pending")
-      .in("type", REMINDER_TYPES);
+      .in("type", APPOINTMENT_TASK_TYPES);
     // Cancelou a reunião: se já era qualificado, cai na etapa "qualificado sem agendar" (vira remarketing).
     const cancelStage = lead.qualified ? "qualificado_sem_agendar" : (lead.stage ?? null);
     await db.from("aa_leads").update({
@@ -75,7 +75,7 @@ Deno.serve(async (req) => {
   // Remarcação: cancela lembretes antigos
   await db.from("aa_scheduled_tasks").update({ status: "canceled" })
     .eq("lead_id", lead.id).eq("status", "pending")
-    .in("type", REMINDER_TYPES);
+    .in("type", APPOINTMENT_TASK_TYPES);
 
   // Supersede: se o lead já tinha OUTRA reunião ativa (evento diferente), cancela a antiga no Calendly.
   const { data: oldAppts } = await db.from("aa_appointments")
@@ -119,7 +119,8 @@ Deno.serve(async (req) => {
     { type: "meeting_confirmation_1h", at: start - 60 * 60_000 },
     { type: "meeting_confirmation_10min", at: start - 10 * 60_000 },
     { type: "meeting_noshow_check", at: start - 5 * 60_000 },
-  ].filter((t) => t.at > Date.now()); // só agenda lembretes futuros
+    { type: DOSSIE_TASK, at: start - 60 * 60_000 }, // dossiê pré-call: 1h antes (só envia se confirmou)
+  ].filter((t) => t.at > Date.now()); // só agenda lembretes/dossiê futuros
 
   if (tasks.length) {
     await db.from("aa_scheduled_tasks").insert(tasks.map((t) => ({

@@ -6,6 +6,7 @@ import { sendText } from "../_shared/zapi.ts";
 import { TEMPLATES } from "../_shared/persona.ts";
 import { funnelContext } from "../_shared/config.ts";
 import { formatHorario, formatDataHora } from "../_shared/util.ts";
+import { formatDossie, generateDossie } from "../_shared/dossie.ts";
 
 async function notifyGabriel(db: ReturnType<typeof admin>, leadId: string, msg: string) {
   const gabriel = Deno.env.get("GABRIEL_WHATSAPP_NUMBER");
@@ -104,6 +105,29 @@ Deno.serve(async (req) => {
           await addHistory(db, lead.id, "status_change", "Lead não confirmou presença (risco de no-show).");
           const horario = appt.scheduled_at ? formatDataHora(appt.scheduled_at) : "o horário combinado";
           await notifyGabriel(db, lead.id, TEMPLATES.gabrielNoShowRisk({ nome, whatsapp: phone ?? "—", horario }));
+        }
+      }
+
+      // dossiê pré-call (1h antes) — SÓ envia se a reunião está ATIVA e CONFIRMADA.
+      else if (task.type === "dossie_prep") {
+        const { data: appt } = await db.from("aa_appointments").select("*").eq("id", task.appointment_id).maybeSingle();
+        const gabriel = Deno.env.get("GABRIEL_WHATSAPP_NUMBER");
+        if (appt && appt.status !== "cancelada" && appt.confirmation_status === "confirmada" && gabriel && lead) {
+          // anti-duplicação: cancela outros dossiês pendentes do mesmo lead
+          await db.from("aa_scheduled_tasks").update({ status: "canceled" })
+            .eq("lead_id", lead.id).eq("type", "dossie_prep").eq("status", "pending").neq("id", task.id);
+          const { data: msgs } = await db.from("aa_messages").select("direction,body")
+            .eq("lead_id", lead.id).order("created_at", { ascending: false }).limit(30);
+          const conversation = (msgs ?? []).reverse().map((m) => ({
+            role: m.direction === "inbound" ? ("user" as const) : ("assistant" as const), content: m.body ?? "",
+          }));
+          const funnelLabel = (lead.funnel === "mentoria") ? "🎓 Mentoria" : "🐺 Alcateia";
+          const fields = await generateDossie({ lead, conversation, funnelLabel });
+          const text = formatDossie(lead, appt, funnelLabel, fields);
+          const s = await sendText(gabriel, text);
+          await addHistory(db, lead.id, "dossie_sent", text, { sent_ok: s.ok });
+        } else {
+          await addHistory(db, lead.id, "dossie_skipped", "Dossiê não enviado (reunião não confirmada ou cancelada).");
         }
       } else {
         done = true; // tipo desconhecido -> apenas conclui

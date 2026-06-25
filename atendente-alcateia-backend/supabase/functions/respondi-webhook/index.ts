@@ -7,7 +7,7 @@ import { parseBudget, initialTemperature } from "../_shared/qualification.ts";
 import { callBrain } from "../_shared/anthropic.ts";
 import { sendBlocks } from "../_shared/zapi.ts";
 import { extractCalendlyEventUuid, fetchCalendlyEventStart } from "../_shared/calendly.ts";
-import { REMINDER_TYPES } from "../_shared/pipeline.ts";
+import { APPOINTMENT_TASK_TYPES, DOSSIE_TASK } from "../_shared/pipeline.ts";
 import { formatDataHora, formatDiaHora } from "../_shared/util.ts";
 import { funnelContext, normFunnel } from "../_shared/config.ts";
 
@@ -183,12 +183,13 @@ Deno.serve(async (req) => {
       // evita lembretes duplicados (o webhook do Calendly pode disparar para o mesmo evento)
       await db.from("aa_scheduled_tasks").update({ status: "canceled" })
         .eq("lead_id", lead.id).eq("status", "pending")
-        .in("type", REMINDER_TYPES);
+        .in("type", APPOINTMENT_TASK_TYPES);
       const reminders = [
         { type: "meeting_confirmation_3h", at: start - 3 * 60 * 60_000 },
         { type: "meeting_confirmation_1h", at: start - 60 * 60_000 },
         { type: "meeting_confirmation_10min", at: start - 10 * 60_000 },
         { type: "meeting_noshow_check", at: start - 5 * 60_000 },
+        { type: DOSSIE_TASK, at: start - 60 * 60_000 }, // dossiê pré-call: 1h antes (só envia se confirmou)
       ].filter((t) => t.at > Date.now());
       if (reminders.length) {
         await db.from("aa_scheduled_tasks").insert(reminders.map((t) => ({

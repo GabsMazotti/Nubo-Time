@@ -44,3 +44,9 @@ export const REMINDER_TYPES = [
   "meeting_confirmation_30min", // legado
   "meeting_noshow_check",
 ];
+
+/** Tarefa do dossiê pré-call (1h antes). NÃO entra em REMINDER_TYPES — precisa SOBREVIVER à
+ * confirmação (os lembretes são cancelados quando o lead confirma; o dossiê só dispara se confirmou). */
+export const DOSSIE_TASK = "dossie_prep";
+/** Tarefas atreladas ao agendamento — canceladas/recriadas quando a reunião muda (agenda/remarca/cancela). */
+export const APPOINTMENT_TASK_TYPES = [...REMINDER_TYPES, DOSSIE_TASK];
