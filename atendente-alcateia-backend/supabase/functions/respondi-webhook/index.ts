@@ -185,9 +185,8 @@ Deno.serve(async (req) => {
         .eq("lead_id", lead.id).eq("status", "pending")
         .in("type", APPOINTMENT_TASK_TYPES);
       const reminders = [
-        { type: "meeting_confirmation_3h", at: start - 3 * 60 * 60_000 },
-        { type: "meeting_confirmation_1h", at: start - 60 * 60_000 },
-        { type: "meeting_confirmation_10min", at: start - 10 * 60_000 },
+        // Lembretes conforme a agenda do FUNIL (Alcateia 3h/1h/10min · Mentoria 1h/30min/10min).
+        ...fctx.reminders.map((r) => ({ type: r.type, at: start - r.offsetMin * 60_000 })),
         { type: "meeting_noshow_check", at: start - 5 * 60_000 },
         { type: DOSSIE_TASK, at: start - 60 * 60_000 }, // dossiê pré-call: 1h antes (só envia se confirmou)
       ].filter((t) => t.at > Date.now());

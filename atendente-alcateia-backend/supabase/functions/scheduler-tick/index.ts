@@ -89,8 +89,9 @@ Deno.serve(async (req) => {
           const horario = appt.scheduled_at ? formatHorario(appt.scheduled_at) : "o horário combinado";
           const link = (appt.meeting_url as string | null) ?? "";
           const body = task.type === "meeting_confirmation_3h" ? T.lembrete3h(nome, horario, link)
+            : task.type === "meeting_confirmation_30min" ? T.lembrete30min(nome, horario, link)
             : task.type === "meeting_confirmation_10min" ? T.lembrete10min(nome, horario, link)
-            : T.lembrete1h(nome, horario, link); // 1h (e 30min legado) usam o lembrete de 1h
+            : T.lembrete1h(nome, horario, link); // 1h (e legado) usam o lembrete de 1h
           const s = await sendText(phone, body);
           await db.from("aa_messages").insert({ lead_id: lead.id, direction: "outbound", body, external_id: s.id ?? null, meta: { kind: task.type } });
           await addHistory(db, lead.id, "reminder_sent", body, { type: task.type, sent_ok: s.ok });

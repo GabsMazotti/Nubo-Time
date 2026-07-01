@@ -92,6 +92,7 @@ ao enviar o link = aguardando_agendamento.`.trim(),
   // ── Lembretes de confirmação da call (com o link gerado pelo Calendly). Placeholders: {nome},{horario},{link} ──
   msg_lembrete_3h: `Opa {nome}! Faltam ~3h pra nossa call ({horario}) 🚀\n\nO link pra você entrar é esse: {link}\n\nPosso confirmar sua presença?`,
   msg_lembrete_1h: `{nome}, daqui a 1h é a nossa call ({horario}).\n\nLink pra entrar na hora: {link}\n\nTá confirmado por aí?`,
+  msg_lembrete_30min: `{nome}, faltam 30min pra nossa call ({horario}).\n\nLink: {link}\n\nTá confirmado?`,
   msg_lembrete_10min: `{nome}, é agora! Nossa call começa em ~10 min ({horario}).\n\nÉ só entrar por aqui: {link}\n\nTô te esperando! 👊`,
 
   // ── Follow-ups de 1º contato (lead não respondeu). Placeholder: {nome} ──
@@ -154,11 +155,13 @@ afiliado: escolher mercado/país e oferta, estrutura de afiliação (CPA, funil,
 pago e criativos pro público LATAM, funil de conversão (cadastro/depósito/comissão) e escala/otimização. IMPORTANTE:
 NÃO é o serviço "feito pra você" da Alcateia — aqui você ENSINA o aluno a operar.
 
-OBJETIVO: bater um papo RÁPIDO e humano, entender o momento da pessoa, qualificar de leve e CONDUZIR pra uma call
-comigo. Você NÃO fecha nada nem explica tudo no WhatsApp — o aprofundamento é na call.
+OBJETIVO: seja DIRETO e OBJETIVO. Seu trabalho é simples: (1) confirmar a call de quem JÁ agendou; (2) de quem NÃO
+agendou, entender RÁPIDO o cenário (1–2 perguntas) e conduzir pra AGENDAR. Você NÃO fecha nada nem explica tudo no
+WhatsApp — o aprofundamento é na call. Sem enrolação: vá direto ao ponto e sempre puxe pro próximo passo (confirmar
+ou agendar).
 
-TOM DE VOZ: leve, próximo, direto, humano, natural pro WhatsApp. Mensagens CURTAS. UMA pergunta por vez. No máximo
-1 emoji ocasional. Nunca pareça robô nem mande textão.
+TOM DE VOZ: direto, objetivo e humano. Mensagens CURTAS (1–2 linhas). UMA pergunta por vez, sempre avançando pro
+próximo passo. No máximo 1 emoji ocasional. Nunca textão, nunca robô.
 
 JEITO DE FALAR (trejeitos do Gabriel): use "Show" pra confirmar/concordar; quando o lead for HOMEM (infira pelo
 primeiro nome), pode chamá-lo de "Mestre" de vez em quando, com MODERAÇÃO. Não chame mulher de "Mestre".
@@ -207,6 +210,7 @@ sem pressão, sem falar preço. Status: 1ª resposta = contato_realizado; quando
 
   msg_lembrete_3h: `Opa {nome}! Faltam ~3h pra nossa call da mentoria ({horario}) 🚀\n\nO link pra entrar é esse: {link}\n\nPosso confirmar sua presença?`,
   msg_lembrete_1h: `{nome}, daqui a 1h é a nossa call da mentoria ({horario}).\n\nLink pra entrar: {link}\n\nTá confirmado por aí?`,
+  msg_lembrete_30min: `{nome}, faltam 30min pra nossa call ({horario}).\n\nLink: {link}\n\nConfirma que vai entrar?`,
   msg_lembrete_10min: `{nome}, é agora! Nossa call começa em ~10 min ({horario}).\n\nÉ só entrar por aqui: {link}\n\nTô te esperando! 👊`,
 
   // Follow-ups de 1º contato (mentoria). Placeholder: {nome}
@@ -343,6 +347,8 @@ export function buildTemplates(cfg: Record<string, string> = {}, defaults: Recor
       fill(cfg.msg_lembrete_3h ?? defaults.msg_lembrete_3h, { nome, horario, link: link || "(te mando o link aqui já já)" }),
     lembrete1h: (nome: string, horario: string, link: string) =>
       fill(cfg.msg_lembrete_1h ?? defaults.msg_lembrete_1h, { nome, horario, link: link || "(te mando o link aqui já já)" }),
+    lembrete30min: (nome: string, horario: string, link: string) =>
+      fill(cfg.msg_lembrete_30min ?? defaults.msg_lembrete_30min ?? "", { nome, horario, link: link || "(te mando o link já já)" }),
     lembrete10min: (nome: string, horario: string, link: string) =>
       fill(cfg.msg_lembrete_10min ?? defaults.msg_lembrete_10min, { nome, horario, link: link || "(te mando o link aqui agora)" }),
     followup30min: (nome: string) =>

@@ -49,6 +49,12 @@ export function funnelDefaults(funnel?: string | null) {
       // Mentoria: qualifica a partir de R$5k (ticket menor que a agência).
       qualifyFloor: 5000,
       outreachFloor: 5000,
+      // Lembretes de confirmação da mentoria: 1h, 30min e 10min antes (com o link).
+      reminders: [
+        { type: "meeting_confirmation_1h", offsetMin: 60 },
+        { type: "meeting_confirmation_30min", offsetMin: 30 },
+        { type: "meeting_confirmation_10min", offsetMin: 10 },
+      ] as { type: string; offsetMin: number }[],
     };
   }
   return {
@@ -60,6 +66,12 @@ export function funnelDefaults(funnel?: string | null) {
     // Alcateia: regra do R$10k (qualifica) / R$5k (entra na abordagem).
     qualifyFloor: QUALIFY_FLOOR,
     outreachFloor: OUTREACH_FLOOR,
+    // Lembretes de confirmação da Alcateia: 3h, 1h e 10min antes (com o link).
+    reminders: [
+      { type: "meeting_confirmation_3h", offsetMin: 180 },
+      { type: "meeting_confirmation_1h", offsetMin: 60 },
+      { type: "meeting_confirmation_10min", offsetMin: 10 },
+    ] as { type: string; offsetMin: number }[],
   };
 }
 

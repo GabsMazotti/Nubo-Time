@@ -5,6 +5,7 @@ import { json } from "../_shared/cors.ts";
 import { cancelCalendlyEvent, detectFunnel, parseCalendlyWebhook } from "../_shared/calendly.ts";
 import { APPOINTMENT_TASK_TYPES, DOSSIE_TASK } from "../_shared/pipeline.ts";
 import { syncRemarketing } from "../_shared/stages.ts";
+import { funnelDefaults } from "../_shared/config.ts";
 
 async function findLead(db: ReturnType<typeof admin>, ev: { phone?: string; email?: string; name?: string }) {
   if (ev.phone) {
@@ -115,9 +116,8 @@ Deno.serve(async (req) => {
   // Agenda os lembretes (3h / 1h / 10min antes) + checagem de no-show (5min)
   const start = new Date(ev.scheduledAt).getTime();
   const tasks = [
-    { type: "meeting_confirmation_3h", at: start - 3 * 60 * 60_000 },
-    { type: "meeting_confirmation_1h", at: start - 60 * 60_000 },
-    { type: "meeting_confirmation_10min", at: start - 10 * 60_000 },
+    // Lembretes conforme a agenda do FUNIL do lead (Alcateia 3h/1h/10min · Mentoria 1h/30min/10min).
+    ...funnelDefaults(lead.funnel).reminders.map((r) => ({ type: r.type, at: start - r.offsetMin * 60_000 })),
     { type: "meeting_noshow_check", at: start - 5 * 60_000 },
     { type: DOSSIE_TASK, at: start - 60 * 60_000 }, // dossiê pré-call: 1h antes (só envia se confirmou)
   ].filter((t) => t.at > Date.now()); // só agenda lembretes/dossiê futuros
