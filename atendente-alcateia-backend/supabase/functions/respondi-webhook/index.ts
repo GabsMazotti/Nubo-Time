@@ -212,7 +212,6 @@ Deno.serve(async (req) => {
     firstMessage = T.confirmacaoGabriel(name, quando);
     await db.from("aa_leads").update({
       status: "call_agendada", temperature: "quente", stage: "reuniao_marcada", stage_changed_at: new Date().toISOString(),
-      first_contact_sent_at: new Date().toISOString(), last_outbound_at: new Date().toISOString(),
     }).eq("id", lead.id);
   } else if ((range.min ?? 0) >= fctx.outreachFloor) {
     // Tem o orçamento mínimo do funil e NÃO agendou -> mensagem PADRÃO de abordagem (sem cérebro).
@@ -224,7 +223,6 @@ Deno.serve(async (req) => {
       qualified: jaQualificado,
       qualified_at: jaQualificado ? new Date().toISOString() : null,
       stage: "primeiro_contato", stage_changed_at: new Date().toISOString(),
-      first_contact_sent_at: new Date().toISOString(), last_outbound_at: new Date().toISOString(),
     }).eq("id", lead.id);
   } else {
     // Não agendou e sem orçamento mínimo -> atendente de remarketing/abordagem (cérebro) decide.
@@ -241,7 +239,6 @@ Deno.serve(async (req) => {
       await db.from("aa_leads").update({
         status: "contato_realizado", temperature: decision.temperature,
         stage: "primeiro_contato", stage_changed_at: new Date().toISOString(),
-        first_contact_sent_at: new Date().toISOString(), last_outbound_at: new Date().toISOString(),
       }).eq("id", lead.id);
     } catch (e) {
       await addHistory(db, lead.id, "error", `Falha ao gerar 1ª mensagem: ${(e as Error).message}`);
@@ -249,12 +246,22 @@ Deno.serve(async (req) => {
     }
   }
 
-  // --- Envia via Z-API (em BLOCOS, cada parágrafo vira uma mensagem) ---
-  const sent = await sendBlocks(norm.phone!, firstMessage);
-  for (const r of sent.results) {
-    await db.from("aa_messages").insert({ lead_id: lead.id, direction: "outbound", body: r.body, external_id: r.id ?? null, meta: { kind: "first_contact", sent_ok: r.ok, reason: r.reason } });
+  // --- Envia a 1ª mensagem com CLAIM ATÔMICO (evita duplicar na corrida com o calendly-webhook) ---
+  // Só quem "trancar" o first_contact_sent_at (null -> agora) envia; o outro webhook pula.
+  const { data: claimed } = await db.from("aa_leads")
+    .update({ first_contact_sent_at: new Date().toISOString(), last_outbound_at: new Date().toISOString() })
+    .eq("id", lead.id).is("first_contact_sent_at", null).select("id").maybeSingle();
+  let sentOk = false;
+  if (claimed) {
+    const sent = await sendBlocks(norm.phone!, firstMessage);
+    sentOk = sent.ok;
+    for (const r of sent.results) {
+      await db.from("aa_messages").insert({ lead_id: lead.id, direction: "outbound", body: r.body, external_id: r.id ?? null, meta: { kind: "first_contact", sent_ok: r.ok, reason: r.reason } });
+    }
+    await addHistory(db, lead.id, "first_contact_sent", firstMessage, { sent_ok: sentOk });
+  } else {
+    await addHistory(db, lead.id, "first_contact_skipped", "1º contato já enviado por outro webhook (corrida) — não duplicou.");
   }
-  await addHistory(db, lead.id, "first_contact_sent", firstMessage, { sent_ok: sent.ok });
 
   // --- Follow-ups: só se NÃO agendou (para tentar engajar quem não respondeu) ---
   if (!jaAgendou) {
@@ -266,5 +273,5 @@ Deno.serve(async (req) => {
     ]);
   }
 
-  return json({ ok: true, lead_id: lead.id, first_message_sent: sent.ok, ja_agendou: jaAgendou });
+  return json({ ok: true, lead_id: lead.id, first_message_sent: sentOk, ja_agendou: jaAgendou });
 });

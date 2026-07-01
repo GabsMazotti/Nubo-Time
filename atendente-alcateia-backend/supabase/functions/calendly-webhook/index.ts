@@ -136,16 +136,21 @@ Deno.serve(async (req) => {
   // Rede de segurança: se ESTE webhook criou o lead (sinal de que o respondi-webhook NÃO disparou),
   // manda a 1ª mensagem de confirmação agora — senão o lead que agenda pelo Calendly do form fica
   // sem WhatsApp. Se o respondi disparar, ele acha o lead já contatado e não duplica.
-  if (isNewLead && lead.phone && !lead.first_contact_sent_at) {
-    const fctx = await funnelContext(lead.funnel);
-    const quando = ev.scheduledAt ? formatDiaHora(ev.scheduledAt) : "";
-    const firstMsg = fctx.templates.confirmacaoGabriel((lead.name as string) ?? "tudo bem", quando);
-    const sent = await sendBlocks(lead.phone as string, firstMsg);
-    for (const r of sent.results) {
-      await db.from("aa_messages").insert({ lead_id: lead.id, direction: "outbound", body: r.body, external_id: r.id ?? null, meta: { kind: "first_contact_calendly", sent_ok: r.ok, reason: r.reason } });
+  if (isNewLead && lead.phone) {
+    // CLAIM ATÔMICO: só envia se ninguém (respondi) já trancou o 1º contato — evita duplicar na corrida.
+    const { data: claimed } = await db.from("aa_leads")
+      .update({ first_contact_sent_at: new Date().toISOString(), last_outbound_at: new Date().toISOString() })
+      .eq("id", lead.id).is("first_contact_sent_at", null).select("id").maybeSingle();
+    if (claimed) {
+      const fctx = await funnelContext(lead.funnel);
+      const quando = ev.scheduledAt ? formatDiaHora(ev.scheduledAt) : "";
+      const firstMsg = fctx.templates.confirmacaoGabriel((lead.name as string) ?? "tudo bem", quando);
+      const sent = await sendBlocks(lead.phone as string, firstMsg);
+      for (const r of sent.results) {
+        await db.from("aa_messages").insert({ lead_id: lead.id, direction: "outbound", body: r.body, external_id: r.id ?? null, meta: { kind: "first_contact_calendly", sent_ok: r.ok, reason: r.reason } });
+      }
+      await addHistory(db, lead.id, "first_contact_sent", firstMsg, { via: "calendly-webhook", sent_ok: sent.ok });
     }
-    await db.from("aa_leads").update({ first_contact_sent_at: new Date().toISOString(), last_outbound_at: new Date().toISOString() }).eq("id", lead.id);
-    await addHistory(db, lead.id, "first_contact_sent", firstMsg, { via: "calendly-webhook (respondi nao disparou)", sent_ok: sent.ok });
   }
 
   return json({ ok: true, lead_id: lead.id, action: ev.kind, reminders: tasks.length });
