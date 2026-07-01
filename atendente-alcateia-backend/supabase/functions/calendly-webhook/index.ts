@@ -5,7 +5,9 @@ import { json } from "../_shared/cors.ts";
 import { cancelCalendlyEvent, detectFunnel, parseCalendlyWebhook } from "../_shared/calendly.ts";
 import { APPOINTMENT_TASK_TYPES, DOSSIE_TASK } from "../_shared/pipeline.ts";
 import { syncRemarketing } from "../_shared/stages.ts";
-import { funnelDefaults } from "../_shared/config.ts";
+import { funnelContext, funnelDefaults } from "../_shared/config.ts";
+import { sendBlocks } from "../_shared/zapi.ts";
+import { formatDiaHora } from "../_shared/util.ts";
 
 async function findLead(db: ReturnType<typeof admin>, ev: { phone?: string; email?: string; name?: string }) {
   if (ev.phone) {
@@ -35,6 +37,7 @@ Deno.serve(async (req) => {
 
   // Encontra ou cria o lead
   let lead = await findLead(db, ev);
+  let isNewLead = false;
   if (!lead) {
     const { data } = await db.from("aa_leads").insert({
       name: ev.name ?? "lead", phone: ev.phone ?? null, phone_valid: Boolean(ev.phone),
@@ -42,6 +45,7 @@ Deno.serve(async (req) => {
       funnel: detectFunnel(body),
     }).select().single();
     lead = data;
+    isNewLead = true;
     if (lead) await addHistory(db, lead.id, "lead_received", "Lead criado a partir de agendamento no Calendly.", { ev });
   }
   if (!lead) return json({ error: "lead_upsert_failed" }, 500);
@@ -127,6 +131,21 @@ Deno.serve(async (req) => {
       lead_id: lead.id, appointment_id: appt?.id ?? null,
       type: t.type, scheduled_for: new Date(t.at).toISOString(),
     })));
+  }
+
+  // Rede de segurança: se ESTE webhook criou o lead (sinal de que o respondi-webhook NÃO disparou),
+  // manda a 1ª mensagem de confirmação agora — senão o lead que agenda pelo Calendly do form fica
+  // sem WhatsApp. Se o respondi disparar, ele acha o lead já contatado e não duplica.
+  if (isNewLead && lead.phone && !lead.first_contact_sent_at) {
+    const fctx = await funnelContext(lead.funnel);
+    const quando = ev.scheduledAt ? formatDiaHora(ev.scheduledAt) : "";
+    const firstMsg = fctx.templates.confirmacaoGabriel((lead.name as string) ?? "tudo bem", quando);
+    const sent = await sendBlocks(lead.phone as string, firstMsg);
+    for (const r of sent.results) {
+      await db.from("aa_messages").insert({ lead_id: lead.id, direction: "outbound", body: r.body, external_id: r.id ?? null, meta: { kind: "first_contact_calendly", sent_ok: r.ok, reason: r.reason } });
+    }
+    await db.from("aa_leads").update({ first_contact_sent_at: new Date().toISOString(), last_outbound_at: new Date().toISOString() }).eq("id", lead.id);
+    await addHistory(db, lead.id, "first_contact_sent", firstMsg, { via: "calendly-webhook (respondi nao disparou)", sent_ok: sent.ok });
   }
 
   return json({ ok: true, lead_id: lead.id, action: ev.kind, reminders: tasks.length });
