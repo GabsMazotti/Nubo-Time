@@ -119,6 +119,24 @@ function switchFunnel(f){
   load().then(()=>flash("")).catch(()=>flash("Erro ao carregar."));
 }
 
+function globalPauseBar(paused){
+  const c = paused ? '#ef4444' : '#00a884';
+  return '<div class="field" style="border:1px solid '+c+';display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">'
+    + '<div><h3 style="margin:0">'+(paused?'🔴 Bot DESLIGADO':'🟢 Bot LIGADO')+'</h3>'
+    + '<div class="hint" style="margin:0">'+(paused?'O bot não está atendendo ninguém (não chama, não responde, não lembra).':'O bot está atendendo normalmente.')+'</div></div>'
+    + '<button onclick="toggleGlobalPause('+(!paused)+')" style="background:'+(paused?'#00a884':'#ef4444')+';color:#fff;border:0;padding:11px 20px;border-radius:8px;font-weight:700;cursor:pointer;white-space:nowrap">'
+    + (paused?'▶ Ligar o bot':'⏸ Desligar o bot')+'</button></div>';
+}
+async function toggleGlobalPause(paused){
+  const msg = paused ? 'Desligar o bot POR COMPLETO? Ele para de atender todo mundo (chamadas, respostas e lembretes) até você religar.' : 'Ligar o bot? Ele volta a atender normalmente.';
+  if(!confirm(msg)) return;
+  try{
+    const r = await fetch(API+"?key="+encodeURIComponent(KEY),{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"set_global_pause",paused:paused})});
+    const d = await r.json();
+    if(d.ok){ flash(paused?'Bot desligado.':'Bot ligado.'); load(); } else { alert("Erro ao mudar o estado do bot: "+(d.error||"")); }
+  }catch(e){ alert("Falha de conexão."); }
+}
+
 async function load(){
   const r = await fetch(API+"?key="+encodeURIComponent(KEY)+"&config=1&funnel="+FUNNEL);
   if(r.status===401) throw new Error("unauthorized");
@@ -128,7 +146,10 @@ async function load(){
   const cfg = d.config || {};
   const isAlc = FUNNEL==="alcateia";
 
-  let html = '<div class="funnelbar"><span class="pill">'+(isAlc?'🐺 Atendente Alcateia':'🎓 Atendente Mentoria (Affiliaplay)')+'</span>'
+  // estado do interruptor GLOBAL (liga/desliga o bot por completo)
+  let gp=false; try{ const gpr=await fetch(API+"?key="+encodeURIComponent(KEY)+"&global_pause=1"); gp=(await gpr.json()).paused; }catch(e){}
+
+  let html = globalPauseBar(gp) + '<div class="funnelbar"><span class="pill">'+(isAlc?'🐺 Atendente Alcateia':'🎓 Atendente Mentoria (Affiliaplay)')+'</span>'
     + '<span style="color:#8696a0;font-size:12px">Você está editando as mensagens deste atendente. Os dois são independentes — nada que você muda aqui afeta o outro.</span></div>';
   html += '<div class="intro">Edite o que o atendente <b>fala e como pensa</b>. As alterações valem <b>na hora</b>. As regras de segurança (identidade, formato em blocos) são fixas e protegidas.</div>';
 
