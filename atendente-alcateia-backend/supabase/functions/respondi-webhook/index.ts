@@ -4,7 +4,6 @@ import { admin, addHistory } from "../_shared/db.ts";
 import { json } from "../_shared/cors.ts";
 import { normalizePhone } from "../_shared/phone.ts";
 import { parseBudget, initialTemperature } from "../_shared/qualification.ts";
-import { callBrain } from "../_shared/anthropic.ts";
 import { sendBlocks } from "../_shared/zapi.ts";
 import { extractCalendlyEventUuid, fetchCalendlyEventStart } from "../_shared/calendly.ts";
 import { APPOINTMENT_TASK_TYPES, DOSSIE_TASK } from "../_shared/pipeline.ts";
@@ -225,25 +224,14 @@ Deno.serve(async (req) => {
       stage: "primeiro_contato", stage_changed_at: new Date().toISOString(),
     }).eq("id", lead.id);
   } else {
-    // Não agendou e sem orçamento mínimo -> atendente de remarketing/abordagem (cérebro) decide.
-    try {
-      const decision = await callBrain({
-        lead: { ...lead, agendamento, formulario_incompleto: incompleto },
-        conversation: [],
-        personaPrompt: fctx.personas.remarketing,
-        situation: incompleto
-          ? "Primeiro contato com um lead que COMEÇOU o nosso formulário mas NÃO finalizou (resposta recuperada/parcial). Na 1ª mensagem: (1) deixe claro quem você é logo no início, conforme a SUA persona; (2) faça uma BREVE apresentação (1 frase) do que você oferece; (3) relembre que ele estava preenchendo nosso formulário e use os dados que ele já preencheu, se houver; (4) com leveza, comente que viu que ele não finalizou e pergunte o que aconteceu / como pode ajudar. Curto e natural, conduzindo pra call quando fizer sentido. Status: contato_realizado."
-          : "Primeiro contato. O lead concluiu o formulário e ainda NÃO respondeu nem agendou. Escreva a 1ª mensagem personalizada conduzindo a conversa (status: contato_realizado).",
-      });
-      firstMessage = decision.reply;
-      await db.from("aa_leads").update({
-        status: "contato_realizado", temperature: decision.temperature,
-        stage: "primeiro_contato", stage_changed_at: new Date().toISOString(),
-      }).eq("id", lead.id);
-    } catch (e) {
-      await addHistory(db, lead.id, "error", `Falha ao gerar 1ª mensagem: ${(e as Error).message}`);
-      return json({ ok: true, lead_id: lead.id, warning: "falha_brain", detail: (e as Error).message });
-    }
+    // Não agendou e ABAIXO do mínimo do funil (ou sem orçamento informado) -> NÃO aborda.
+    // Regra: o bot só chama quem não agendou se o orçamento for >= o mínimo (R$5k). Abaixo disso,
+    // o lead fica no CRM como não qualificado, SEM mensagem e SEM follow-up.
+    await db.from("aa_leads").update({
+      status: "nao_qualificado", temperature: initialTemperature(range),
+    }).eq("id", lead.id);
+    await addHistory(db, lead.id, "lead_sem_abordagem", `Não abordado: orçamento abaixo do mínimo de R$${fctx.outreachFloor} (ou não informado).`, { budget_min: range.min });
+    return json({ ok: true, lead_id: lead.id, first_message_sent: false, skipped_low_budget: true });
   }
 
   // --- Envia a 1ª mensagem com CLAIM ATÔMICO (evita duplicar na corrida com o calendly-webhook) ---
