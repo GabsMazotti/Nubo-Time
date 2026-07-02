@@ -32,6 +32,12 @@ Deno.serve(async (req) => {
     return jsonR({ config: effective, defaults: fd.defaults, funnel: fd.funnel, faq_keys: fd.faqKeys });
   }
 
+  // --- Estado do interruptor GLOBAL (bot ligado/desligado por completo) ---
+  if (req.method === "GET" && url.searchParams.get("global_pause")) {
+    const { data } = await db.from("aa_config").select("value").eq("key", "bot_paused_global").limit(1);
+    return jsonR({ paused: String(data?.[0]?.value ?? "").toLowerCase() === "true" });
+  }
+
   // --- Etapas do funil + gatilhos (palavras que marcam a etapa) ---
   if (req.method === "GET" && url.searchParams.get("stages")) {
     const { data: stages } = await db.from("aa_stages").select("*").order("sort_order", { ascending: true });
@@ -104,6 +110,12 @@ Deno.serve(async (req) => {
       await db.from("aa_leads").update({ bot_paused: paused }).eq("id", body.lead_id);
       await addHistory(db, body.lead_id as string, "bot_toggle", paused ? "Bot pausado (humano assumiu)." : "Bot reativado.");
       return jsonR({ ok: true, bot_paused: paused });
+    }
+    if (body.action === "set_global_pause") {
+      // Liga/desliga o bot POR COMPLETO (kill switch global).
+      const paused = !!body.paused;
+      await db.from("aa_config").upsert({ funnel: "alcateia", key: "bot_paused_global", value: paused ? "true" : "false" }, { onConflict: "funnel,key" });
+      return jsonR({ ok: true, paused });
     }
     return jsonR({ error: "acao_desconhecida" }, 400);
   }
