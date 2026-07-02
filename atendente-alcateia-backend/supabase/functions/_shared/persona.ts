@@ -256,7 +256,9 @@ export const FAQ_MENTORIA_KEYS: { key: string; quando: string }[] = [
 // ──────────────────────────────────────────────────────────────────────────────
 const SCAFFOLD = `
 QUEM É QUEM (regra inquebrável, NÃO confunda): VOCÊ é o Gabriel. O LEAD é a OUTRA pessoa — o nome dele está em
-"name" no contexto do lead. Trate o lead pelo PRIMEIRO NOME dele (ou sem nome). NUNCA chame o lead de "Gabriel"
+"name" no contexto do lead. Trate o lead SEMPRE pelo PRIMEIRO NOME. Se o "name" vier com sobrenome, @ ou apelido
+(ex.: "Igor Tafarel - @eljugador_ofc"), use SÓ o primeiro nome ("Igor") — NUNCA repita o nome completo nem o @handle.
+NUNCA chame o lead de "Gabriel"
 (esse é o SEU nome). Use SEMPRE os dados reais do lead (mercado/perfil em "market"/"role") — NÃO invente o tipo
 de negócio dele (ex.: não diga "corretora" se ele é dono de bet/cassino).
 
@@ -316,6 +318,16 @@ function fill(tpl: string, vars: Record<string, string>): string {
   return tpl.replace(/\{(\w+)\}/g, (_, k) => vars[k] ?? "");
 }
 
+/** Extrai o PRIMEIRO NOME de um "name" bagunçado. Ex.: "Igor Tafarel - @eljugador_ofc" -> "Igor". */
+export function firstName(name: string): string {
+  const n = String(name ?? "").trim();
+  if (!n) return "tudo bem";
+  if (n.toLowerCase() === "tudo bem") return n;
+  // corta " - apelido", " | ...", "@handle", "(..." e pega a 1ª palavra.
+  const clean = n.replace(/\s+[-|]\s.*$/, "").replace(/\s*[(@].*$/, "").trim();
+  return (clean || n).split(/\s+/)[0] || n;
+}
+
 /** Mensagens-padrão fixas (não editáveis pelo painel) — lembretes/follow-ups/avisos. */
 export const TEMPLATES = {
   confirmation1h: (nome: string, horario: string) =>
@@ -340,26 +352,26 @@ export const TEMPLATES = {
 export function buildTemplates(cfg: Record<string, string> = {}, defaults: Record<string, string> = PERSONA_DEFAULTS) {
   return {
     gabrielQualificado: (nome: string) =>
-      fill(cfg.msg_qualificado ?? defaults.msg_qualificado, { nome }),
+      fill(cfg.msg_qualificado ?? defaults.msg_qualificado, { nome: firstName(nome) }),
     confirmacaoGabriel: (nome: string, quando: string) =>
-      fill(cfg.msg_agendou ?? defaults.msg_agendou, { nome, quando: quando || "o horário combinado" }),
+      fill(cfg.msg_agendou ?? defaults.msg_agendou, { nome: firstName(nome), quando: quando || "o horário combinado" }),
     confirmacaoFeita: (quando: string) =>
       fill(cfg.msg_confirmacao ?? defaults.msg_confirmacao, { quando: quando || "o horário combinado" }),
     remarcacao: (nome: string, url: string) =>
-      fill(cfg.msg_remarcacao ?? defaults.msg_remarcacao, { nome: nome || "tudo bem", url }),
+      fill(cfg.msg_remarcacao ?? defaults.msg_remarcacao, { nome: firstName(nome), url }),
     lembrete3h: (nome: string, horario: string, link: string) =>
-      fill(cfg.msg_lembrete_3h ?? defaults.msg_lembrete_3h, { nome, horario, link: link || "(te mando o link aqui já já)" }),
+      fill(cfg.msg_lembrete_3h ?? defaults.msg_lembrete_3h, { nome: firstName(nome), horario, link: link || "(te mando o link aqui já já)" }),
     lembrete1h: (nome: string, horario: string, link: string) =>
-      fill(cfg.msg_lembrete_1h ?? defaults.msg_lembrete_1h, { nome, horario, link: link || "(te mando o link aqui já já)" }),
+      fill(cfg.msg_lembrete_1h ?? defaults.msg_lembrete_1h, { nome: firstName(nome), horario, link: link || "(te mando o link aqui já já)" }),
     lembrete30min: (nome: string, horario: string, link: string) =>
-      fill(cfg.msg_lembrete_30min ?? defaults.msg_lembrete_30min ?? "", { nome, horario, link: link || "(te mando o link já já)" }),
+      fill(cfg.msg_lembrete_30min ?? defaults.msg_lembrete_30min ?? "", { nome: firstName(nome), horario, link: link || "(te mando o link já já)" }),
     lembrete10min: (nome: string, horario: string, link: string) =>
-      fill(cfg.msg_lembrete_10min ?? defaults.msg_lembrete_10min, { nome, horario, link: link || "(te mando o link aqui agora)" }),
+      fill(cfg.msg_lembrete_10min ?? defaults.msg_lembrete_10min, { nome: firstName(nome), horario, link: link || "(te mando o link aqui agora)" }),
     followup30min: (nome: string) =>
-      fill(cfg.msg_followup_30min ?? defaults.msg_followup_30min ?? "", { nome }),
+      fill(cfg.msg_followup_30min ?? defaults.msg_followup_30min ?? "", { nome: firstName(nome) }),
     followup4h: (nome: string) =>
-      fill(cfg.msg_followup_4h ?? defaults.msg_followup_4h ?? "", { nome }),
+      fill(cfg.msg_followup_4h ?? defaults.msg_followup_4h ?? "", { nome: firstName(nome) }),
     followupNextDay: (nome: string) =>
-      fill(cfg.msg_followup_dia ?? defaults.msg_followup_dia ?? "", { nome }),
+      fill(cfg.msg_followup_dia ?? defaults.msg_followup_dia ?? "", { nome: firstName(nome) }),
   };
 }
