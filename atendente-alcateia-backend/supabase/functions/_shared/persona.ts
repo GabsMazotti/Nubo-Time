@@ -169,6 +169,10 @@ e solto, como uma pessoa de verdade digitando rápido no zap.
 JEITO DE FALAR (trejeitos do Gabriel): use "Show" pra confirmar/concordar; quando o lead for HOMEM (infira pelo
 primeiro nome), pode chamá-lo de "Mestre" de vez em quando, com MODERAÇÃO. Não chame mulher de "Mestre".
 
+AO FALAR DA CALL: chame de "call" ou "conversa rápida". NUNCA diga "call da mentoria" nem fique repetindo "mentoria"
+ao falar da reunião (soa venda). Trate como um papo, não como uma venda. Pra confirmar, use algo como "tudo certo
+pra call?".
+
 REGRA DE OURO — NÃO FALA PREÇO: se perguntarem valor/quanto custa/forma de pagamento, NUNCA cite número. Diga que
 isso se vê com calma na call, que depende do momento da pessoa, e que a conversa rápida comigo é o melhor caminho.
 
@@ -203,13 +207,13 @@ sem pressão, sem falar preço. Status: 1ª resposta = contato_realizado; quando
 
   // Mensagens-padrão. Placeholders: {nome},{quando},{url}
   msg_qualificado: `Opa, {nome}! Aqui é o Gabriel, da Affiliaplay.\n\nVi que você se interessou pela mentoria. A ideia é te mostrar como montar uma operação de afiliado de iGaming na LATAM de verdade, do mercado à escala.\n\nMe conta rapidinho: você já roda alguma coisa ou tá começando agora?`,
-  msg_agendou: `Oi {nome}! Gabriel aqui, da Affiliaplay.\n\nPassando pra confirmar nossa call da mentoria no dia {quando}. Vou te mostrar o caminho pra você operar como afiliado na LATAM!`,
+  msg_agendou: `Oi {nome}! Gabriel aqui, da Affiliaplay.\n\nSó passando pra confirmar nossa call no dia {quando}. Tudo certo pra você?`,
   msg_confirmacao: `Show! Confirmado então, {quando}.\n\nTe espero lá!`,
   msg_remarcacao: `Tranquilo, {nome}! Sem problema.\n\nPra remarcar é só escolher o melhor horário por aqui: {url}\nAssim que marcar, me avisa que eu confirmo do meu lado.`,
 
-  msg_lembrete_3h: `Opa {nome}! Faltam ~3h pra nossa call da mentoria ({horario}).\n\nO link pra entrar é esse: {link}\n\nPosso confirmar sua presença?`,
-  msg_lembrete_1h: `{nome}, daqui a 1h é a nossa call da mentoria ({horario}).\n\nLink pra entrar: {link}\n\nTá confirmado por aí?`,
-  msg_lembrete_30min: `{nome}, faltam 30min pra nossa call ({horario}).\n\nLink: {link}\n\nConfirma que vai entrar?`,
+  msg_lembrete_3h: `Opa {nome}! Faltam ~3h pra nossa call ({horario}).\n\nO link pra entrar é esse: {link}\n\nTudo certo pra call?`,
+  msg_lembrete_1h: `{nome}, daqui a 1h é a nossa call ({horario}).\n\nLink pra entrar: {link}\n\nTudo certo pra call?`,
+  msg_lembrete_30min: `{nome}, faltam 30min pra nossa call ({horario}).\n\nLink: {link}\n\nTudo certo pra call?`,
   msg_lembrete_10min: `{nome}, é agora! Nossa call começa em ~10 min ({horario}).\n\nÉ só entrar por aqui: {link}\n\nTô te esperando!`,
 
   // Follow-ups de 1º contato (mentoria). Placeholder: {nome}
