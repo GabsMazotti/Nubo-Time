@@ -5,7 +5,7 @@ import { json } from "../_shared/cors.ts";
 import { cancelCalendlyEvent, detectFunnel, parseCalendlyWebhook } from "../_shared/calendly.ts";
 import { APPOINTMENT_TASK_TYPES, DOSSIE_TASK } from "../_shared/pipeline.ts";
 import { syncRemarketing } from "../_shared/stages.ts";
-import { funnelContext, funnelDefaults } from "../_shared/config.ts";
+import { funnelContext, funnelDefaults, isGloballyPaused } from "../_shared/config.ts";
 import { sendBlocks } from "../_shared/zapi.ts";
 import { formatDiaHora } from "../_shared/util.ts";
 
@@ -28,6 +28,8 @@ async function findLead(db: ReturnType<typeof admin>, ev: { phone?: string; emai
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return json({ ok: true });
   if (req.method !== "POST") return json({ error: "method_not_allowed" }, 405);
+
+  if (await isGloballyPaused()) return json({ ok: true, paused_global: true });
 
   let body: Record<string, unknown>;
   try { body = await req.json(); } catch { return json({ error: "invalid_json" }, 400); }

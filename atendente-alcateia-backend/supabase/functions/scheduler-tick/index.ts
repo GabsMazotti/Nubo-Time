@@ -4,7 +4,7 @@ import { admin, addHistory } from "../_shared/db.ts";
 import { json } from "../_shared/cors.ts";
 import { sendText } from "../_shared/zapi.ts";
 import { TEMPLATES } from "../_shared/persona.ts";
-import { funnelContext } from "../_shared/config.ts";
+import { funnelContext, isGloballyPaused } from "../_shared/config.ts";
 import { formatHorario, formatDataHora } from "../_shared/util.ts";
 import { formatDossie, generateDossie } from "../_shared/dossie.ts";
 
@@ -24,6 +24,8 @@ Deno.serve(async (req) => {
   // Proteção opcional por segredo (header x-cron-secret)
   const secret = Deno.env.get("SCHEDULER_SECRET");
   if (secret && req.headers.get("x-cron-secret") !== secret) return json({ error: "unauthorized" }, 401);
+
+  if (await isGloballyPaused()) return json({ ok: true, paused_global: true, processed: 0 });
 
   const db = admin();
   const nowIso = new Date().toISOString();

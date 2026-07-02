@@ -8,7 +8,7 @@ import { isValidStatus, REMINDER_TYPES } from "../_shared/pipeline.ts";
 import { evaluateStage, loadStageRules, loadStages, syncRemarketing } from "../_shared/stages.ts";
 import { QUALIFY_FLOOR } from "../_shared/qualification.ts";
 import { TEMPLATES } from "../_shared/persona.ts";
-import { funnelContext } from "../_shared/config.ts";
+import { funnelContext, isGloballyPaused } from "../_shared/config.ts";
 import { formatDataHora, formatDiaHora } from "../_shared/util.ts";
 import { cancelCalendlyEvent } from "../_shared/calendly.ts";
 
@@ -61,6 +61,7 @@ function wantsConfirm(text?: string): boolean {
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return json({ ok: true });
   if (req.method !== "POST") return json({ error: "method_not_allowed" }, 405);
+  if (await isGloballyPaused()) return json({ ok: true, paused_global: true });
 
   let payload: Record<string, unknown>;
   try { payload = await req.json(); } catch { return json({ error: "invalid_json" }, 400); }

@@ -8,7 +8,7 @@ import { sendBlocks } from "../_shared/zapi.ts";
 import { extractCalendlyEventUuid, fetchCalendlyEventStart } from "../_shared/calendly.ts";
 import { APPOINTMENT_TASK_TYPES, DOSSIE_TASK } from "../_shared/pipeline.ts";
 import { formatDataHora, formatDiaHora } from "../_shared/util.ts";
-import { funnelContext, normFunnel } from "../_shared/config.ts";
+import { funnelContext, isGloballyPaused, normFunnel } from "../_shared/config.ts";
 
 // Mapeia campos do Respondi (nomes variam) para o nosso modelo.
 function pick(obj: Record<string, unknown>, keys: string[]): string | undefined {
@@ -38,6 +38,9 @@ function pickRaw(obj: Record<string, unknown>, keys: string[]): unknown {
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return json({ ok: true });
   if (req.method !== "POST") return json({ error: "method_not_allowed" }, 405);
+
+  // Pausa global do bot (kill switch) — não processa nada.
+  if (await isGloballyPaused()) return json({ ok: true, paused_global: true });
 
   // Validação opcional por segredo (?secret=...)
   const secret = Deno.env.get("RESPONDI_WEBHOOK_SECRET");

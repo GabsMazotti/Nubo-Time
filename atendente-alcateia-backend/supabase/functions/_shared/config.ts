@@ -36,6 +36,20 @@ export async function loadConfig(funnel: string = "alcateia"): Promise<Record<st
   }
 }
 
+/**
+ * PAUSA GLOBAL do bot (kill switch). Lida da flag aa_config key='bot_paused_global' value='true'.
+ * Quando true, TODAS as entradas (respondi/zapi/calendly/scheduler) fazem no-op — o bot fica 100%
+ * desligado até religar. Falha-segura: em erro, retorna false (bot ligado).
+ */
+export async function isGloballyPaused(): Promise<boolean> {
+  try {
+    const { data } = await admin().from("aa_config").select("value").eq("key", "bot_paused_global").limit(1);
+    return String(data?.[0]?.value ?? "").toLowerCase() === "true";
+  } catch {
+    return false;
+  }
+}
+
 /** Defaults + FAQ + Calendly de cada funil. FONTE ÚNICA — é aqui que os dois NUNCA se misturam. */
 export function funnelDefaults(funnel?: string | null) {
   const f = normFunnel(funnel);
